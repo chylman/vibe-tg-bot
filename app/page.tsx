@@ -18,7 +18,7 @@ export default async function MessagesPage() {
   return (
     <div className="min-h-full flex flex-col items-center px-4 py-10 sm:px-6 lg:px-8">
       <main className="w-full max-w-3xl">
-        <h1 className="text-2xl font-semibold mb-6">SupportBot — Сообщения</h1>
+        <h1 className="text-2xl font-semibold mb-6">BotAdminPanel — Сообщения</h1>
 
         {error && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-red-700">
