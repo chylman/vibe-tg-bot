@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
-import { supabase } from "../lib/supabase";
+import { redirect } from "next/navigation";
+import { getSupabaseServer } from "../lib/supabaseServer"; // async
+import { SignOutButton } from "./signinout";
 
 // Server Component: fetch messages on the server
 export default async function MessagesPage() {
@@ -12,6 +14,14 @@ export default async function MessagesPage() {
     telegram_chat_id: string | number | null;
   };
 
+  const supabase = await getSupabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/login");
+  }
+
   const { data: messages, error } = await supabase
     .from("messages")
     .select("*")
@@ -20,7 +30,13 @@ export default async function MessagesPage() {
   return (
     <div className="min-h-full flex flex-col items-center px-4 py-10 sm:px-6 lg:px-8">
       <main className="w-full max-w-3xl">
-        <h1 className="text-2xl font-semibold mb-6">BotAdminPanel — Сообщения</h1>
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">BotAdminPanel — Сообщения</h1>
+          <div className="flex items-center gap-3 text-sm text-zinc-600">
+            <span>{user.email}</span>
+            <SignOutButton />
+          </div>
+        </div>
 
         {error && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-red-700">
