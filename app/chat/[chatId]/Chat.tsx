@@ -29,11 +29,18 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
   const [text, setText] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
 
-  const chatIdNum = useMemo(() => {
-    // messages.telegram_chat_id в БД часто bigint; пробуем число, если возможно
-    const n = Number(chatId)
-    return Number.isFinite(n) ? n : chatId
+  const chatIdStr = useMemo(() => {
+    const raw = (chatId ?? '').toString().trim()
+    if (!raw || raw === 'undefined' || raw === 'null') return null
+    return raw
   }, [chatId])
+
+  const chatIdNum = useMemo(() => {
+    if (chatIdStr == null) return null as any
+    // messages.telegram_chat_id в БД часто bigint; пробуем число, если возможно
+    const n = Number(chatIdStr)
+    return Number.isFinite(n) ? n : chatIdStr
+  }, [chatIdStr])
 
   useEffect(() => {
     let active = true
@@ -41,17 +48,20 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
       setLoading(true)
       setError('')
       try {
+        if (chatIdStr == null || chatIdNum == null) {
+          throw new Error('Некорректный идентификатор чата')
+        }
         const [mRes, oRes] = await Promise.all([
           supabase
             .from('messages')
             .select('*')
-            .eq('telegram_chat_id', chatIdNum)
+            .eq('telegram_chat_id', chatIdNum as any)
             .order('created_at', { ascending: true })
             .limit(500),
           supabase
             .from('bot_outbox')
             .select('*')
-            .eq('telegram_chat_id', chatIdNum)
+            .eq('telegram_chat_id', chatIdNum as any)
             .order('created_at', { ascending: true })
             .limit(500),
         ])
@@ -71,23 +81,28 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     load()
 
     // Realtime подписки (опционально)
-    const channel = supabase.channel('chat-' + chatId)
-    channel
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `telegram_chat_id=eq.${chatId}` }, (payload) => {
-        setUserMessages((prev) => [...prev, payload.new as any])
-        setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'smooth' }), 50)
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bot_outbox', filter: `telegram_chat_id=eq.${chatId}` }, (payload) => {
-        setAdminMessages((prev) => [...prev, payload.new as any])
-        setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'smooth' }), 50)
-      })
-      .subscribe()
+    const channelName = 'chat-' + (chatIdStr ?? 'invalid')
+    const channel = supabase.channel(channelName)
+    if (chatIdStr != null) {
+      channel
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `telegram_chat_id=eq.${chatIdStr}` }, (payload) => {
+          setUserMessages((prev) => [...prev, payload.new as any])
+          setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'smooth' }), 50)
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bot_outbox', filter: `telegram_chat_id=eq.${chatIdStr}` }, (payload) => {
+          setAdminMessages((prev) => [...prev, payload.new as any])
+          setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'smooth' }), 50)
+        })
+        .subscribe()
+    } else {
+      // Подписку не создаём при некорректном chatId
+    }
 
     return () => {
       active = false
       supabase.removeChannel(channel)
     }
-  }, [chatId, chatIdNum])
+  }, [chatIdStr, chatIdNum])
 
   const merged = useMemo(() => {
     type Item = { kind: 'user' | 'admin'; id: string | number; text: string; at: string; meta?: any }
@@ -100,6 +115,10 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     e.preventDefault()
     const value = text.trim()
     if (!value) return
+    if (chatIdStr == null || chatIdNum == null) {
+      setError('Нельзя отправить сообщение: некорректный chatId')
+      return
+    }
 
     const optimistic: Outbox = {
       id: 'temp-' + Math.random().toString(36).slice(2),
@@ -116,7 +135,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
 
     const { error } = await supabase.from('bot_outbox').insert({
       text: value,
-      telegram_chat_id: chatIdNum,
+      telegram_chat_id: chatIdNum as any,
       admin_uid: adminId,
     })
     if (error) {
