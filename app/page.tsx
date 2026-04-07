@@ -75,8 +75,17 @@ export default async function MessagesPage() {
                 <p className="whitespace-pre-wrap text-zinc-800 dark:text-zinc-200">
                   {m.text || "(пустое сообщение)"}
                 </p>
-                <footer className="mt-3 text-xs text-zinc-500">
-                  Telegram Chat ID: {m.telegram_chat_id ?? "—"}
+                <footer className="mt-3 flex items-center justify-between text-xs text-zinc-500">
+                  <span>Telegram Chat ID: {m.telegram_chat_id ?? "—"}</span>
+                  {m.telegram_chat_id && (
+                    <a
+                      href={`/chat/${m.telegram_chat_id}`}
+                      className="ml-3 inline-flex items-center rounded-md border px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      title="Открыть чат"
+                    >
+                      Открыть чат
+                    </a>
+                  )}
                 </footer>
               </article>
             );
