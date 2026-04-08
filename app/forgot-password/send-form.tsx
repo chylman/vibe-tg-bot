@@ -15,7 +15,7 @@ export default function ForgotForm() {
 
     try {
       const origin = window.location.origin
-      const redirectTo = `${origin}/auth/callback`
+      const redirectTo = `${origin}/auth/confirm`
       const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
       if (error) {
         setState({ ok: false, message: error.message })

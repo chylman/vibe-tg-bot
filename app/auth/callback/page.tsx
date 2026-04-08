@@ -13,47 +13,22 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     async function handle() {
-      try {
-        const href = window.location.href
-        const url = new URL(href)
-
-        // 1) PKCE: ?code=...
-        const hasCode = !!url.searchParams.get('code')
-        // @ts-ignore — совместимость с разными версиями SDK
-        if (hasCode && typeof supabase.auth.exchangeCodeForSession === 'function') {
-          // @ts-ignore
-          const { error } = await supabase.auth.exchangeCodeForSession(href)
-          if (error) throw error
-        }
-
-        // 2) Hash-вариант: #access_token=...&refresh_token=...
-        if (!hasCode && window.location.hash) {
-          const params = new URLSearchParams(window.location.hash.slice(1))
-          const access_token = params.get('access_token')
-          const refresh_token = params.get('refresh_token')
-          if (access_token && refresh_token) {
-            const { error } = await supabase.auth.setSession({ access_token, refresh_token })
-            if (error) throw error
-          }
-        }
-
-        // 3) Проверяем, появилась ли сессия
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) {
-          const errorCode = url.searchParams.get('error_code')
-          const errorDesc = url.searchParams.get('error_description')
-          const fallback = 'Не удалось установить сессию. Ссылка недействительна или устарела.'
-          setMessage(errorDesc || errorCode || fallback)
-          setStage('error')
-          return
-        }
-
-        // After recovery link, Supabase sets a session that allows password update
-        setStage('set-password')
-      } catch (e: any) {
+      const url = new URL(window.location.href)
+      const error = url.searchParams.get('error')
+      if (error) {
+        setMessage('Ссылка недействительна или устарела. Запросите новую.')
         setStage('error')
-        setMessage(e?.message || 'Ошибка обработки ссылки')
+        return
       }
+
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setMessage('Не удалось установить сессию. Ссылка недействительна или устарела.')
+        setStage('error')
+        return
+      }
+
+      setStage('set-password')
     }
     handle()
   }, [])
