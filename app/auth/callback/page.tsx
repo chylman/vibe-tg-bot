@@ -16,7 +16,11 @@ export default function AuthCallbackPage() {
       const url = new URL(window.location.href)
       const error = url.searchParams.get('error')
       if (error) {
-        setMessage('Ссылка недействительна или устарела. Запросите новую.')
+        setMessage(
+          error === 'no_code'
+            ? 'Ссылка недействительна или устарела. Запросите новую.'
+            : 'Не удалось подтвердить ссылку. Запросите новое письмо.'
+        )
         setStage('error')
         return
       }

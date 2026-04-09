@@ -29,7 +29,7 @@ export async function sendReset(prevState: any, formData: FormData) {
   const supabase = await getSupabaseServer();
   const hdrs = await headers();
   const origin = hdrs.get("origin") || "";
-  const redirectTo = `${origin}/auth/callback`;
+  const redirectTo = `${origin}/auth/confirm`;
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
   if (error) {
     return { ok: false, message: error.message };
