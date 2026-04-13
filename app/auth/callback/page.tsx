@@ -25,6 +25,23 @@ export default function AuthCallbackPage() {
         return
       }
 
+      // Exchange the PKCE auth code for a session.
+      // Supabase redirects here with ?code=... after the user clicks the
+      // recovery email link. The code verifier was stored in browser cookies
+      // when resetPasswordForEmail was called, so the exchange succeeds as long
+      // as the user is on the same browser/device.
+      const code = url.searchParams.get('code')
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+        if (exchangeError) {
+          setMessage('Не удалось подтвердить ссылку: ' + exchangeError.message)
+          setStage('error')
+          return
+        }
+        // Remove the code from the URL so a page refresh doesn't re-attempt the exchange.
+        window.history.replaceState({}, '', '/auth/callback')
+      }
+
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setMessage('Не удалось установить сессию. Ссылка недействительна или устарела.')
