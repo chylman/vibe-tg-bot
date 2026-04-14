@@ -6,7 +6,7 @@ import { SignOutButton } from "./signinout";
 import Chat from '@/app/chat/[chatId]/Chat'
 
 // Server Component: split view (chats list + active chat)
-export default async function MessagesPage({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
+export default async function MessagesPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const supabase = await getSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login')
@@ -35,7 +35,7 @@ export default async function MessagesPage({ searchParams }: { searchParams?: Re
   }
 
   // Determine selected chatId from URL or default to most recent
-  const qp = searchParams || {}
+  const qp = (await searchParams) || {}
   const qpChatId = typeof qp.chatId === 'string' ? qp.chatId : Array.isArray(qp.chatId) ? qp.chatId[0] : undefined
   const firstChatId = (chats && chats.length > 0) ? String(chats[0].telegram_chat_id) : undefined
   const activeChatId = (qpChatId && qpChatId !== 'undefined' && qpChatId !== 'null') ? qpChatId : firstChatId

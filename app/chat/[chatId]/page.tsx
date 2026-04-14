@@ -2,12 +2,12 @@ import { getSupabaseServer } from '@/lib/supabaseServer'
 import { redirect } from 'next/navigation'
 import Chat from './Chat'
 
-export default async function ChatPage({ params }: { params: { chatId: string } }) {
+export default async function ChatPage({ params }: { params: Promise<{ chatId: string }> }) {
   const supabase = await getSupabaseServer()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const chatId = params.chatId
+  const { chatId } = await params
 
   return (
     <div className="h-screen flex flex-col items-center px-4 py-6 overflow-hidden">
