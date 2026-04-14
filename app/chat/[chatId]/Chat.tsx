@@ -40,6 +40,13 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
   const listRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
+  // IDs of user messages that existed when the chat first loaded.
+  // Any user message NOT in this set is "new" and triggers the divider.
+  const loadedMsgIds = useRef<Set<string>>(new Set())
+  const [firstNewMsgId, setFirstNewMsgId] = useState<string | null>(null)
+  const [dividerVisible, setDividerVisible] = useState(false)
+  const dividerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
     bottomRef.current?.scrollIntoView({ behavior })
   }
@@ -58,10 +65,44 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
 
   const isMySession = session?.manager_id === adminId
 
-  // Scroll to bottom once the initial load is done
+  // Reset divider whenever the chat changes
   useEffect(() => {
-    if (!loading) scrollToBottom('auto')
+    loadedMsgIds.current = new Set()
+    setFirstNewMsgId(null)
+    setDividerVisible(false)
+    if (dividerTimerRef.current) clearTimeout(dividerTimerRef.current)
+  }, [chatIdStr])
+
+  // After initial load: snapshot which user message IDs already exist
+  useEffect(() => {
+    if (!loading) {
+      loadedMsgIds.current = new Set(userMessages.map(m => String(m.id)))
+      scrollToBottom('auto')
+      markAsRead(merged)
+    }
   }, [loading])
+
+  // When new user messages arrive after the initial load: show divider
+  useEffect(() => {
+    if (loading || loadedMsgIds.current.size === 0) return
+    // Find the first user message not present at load time
+    const firstNew = userMessages.find(m => !loadedMsgIds.current.has(String(m.id)))
+    if (firstNew) {
+      if (firstNewMsgId === null) {
+        setFirstNewMsgId(`u-${firstNew.id}`)
+        setDividerVisible(true)
+        if (dividerTimerRef.current) clearTimeout(dividerTimerRef.current)
+        dividerTimerRef.current = setTimeout(() => setDividerVisible(false), 5000)
+      }
+      markAsRead(merged)
+    }
+  }, [userMessages.length])
+
+  function markAsRead(currentMerged: typeof merged) {
+    if (!chatIdStr || currentMerged.length === 0) return
+    localStorage.setItem('lastRead_' + chatIdStr, currentMerged[currentMerged.length - 1].at)
+    window.dispatchEvent(new CustomEvent('chat-marked-read'))
+  }
 
   useEffect(() => {
     let active = true
@@ -336,8 +377,26 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
           <div className="text-sm text-zinc-500">Сообщений пока нет.</div>
         )}
         {merged.map((item) => (
+          <div key={item.id}>
+            {firstNewMsgId !== null && String(item.id) === firstNewMsgId && (
+              <div
+                className={`flex items-center gap-2 my-2 transition-opacity duration-500 ${dividerVisible ? 'opacity-100' : 'opacity-0'}`}
+                onTransitionEnd={() => {
+                  if (!dividerVisible) {
+                    setFirstNewMsgId(null)
+                    // Expand the baseline so the next new message triggers a fresh divider
+                    userMessages.forEach(m => loadedMsgIds.current.add(String(m.id)))
+                  }
+                }}
+              >
+                <div className="flex-1 h-px bg-emerald-400" />
+                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                  Новые сообщения
+                </span>
+                <div className="flex-1 h-px bg-emerald-400" />
+              </div>
+            )}
           <div
-            key={item.id}
             className={`max-w-[80%] ${item.kind === 'admin' ? 'ml-auto text-right' : 'mr-auto'}`}
           >
             <div
@@ -358,6 +417,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
               })}
               {item.kind === 'admin' && item.meta?.status ? ` · ${item.meta.status}` : ''}
             </div>
+          </div>
           </div>
         ))}
         <div ref={bottomRef} />

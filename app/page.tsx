@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getSupabaseServer } from "../lib/supabaseServer"; // async
 import { SignOutButton } from "./signinout";
 import Chat from '@/app/chat/[chatId]/Chat'
+import ChatSidebar from './ChatSidebar'
 
 // Server Component: split view (chats list + active chat)
 export default async function MessagesPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
@@ -41,8 +42,8 @@ export default async function MessagesPage({ searchParams }: { searchParams?: Pr
   const activeChatId = (qpChatId && qpChatId !== 'undefined' && qpChatId !== 'null') ? qpChatId : firstChatId
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b border-zinc-200 dark:border-zinc-800 px-4 py-3 flex items-center justify-between">
+    <div className="h-screen flex flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-zinc-200 dark:border-zinc-800 px-4 py-3 flex items-center justify-between">
         <h1 className="text-lg sm:text-xl font-semibold">BotAdminPanel — Чаты</h1>
         <div className="flex items-center gap-3 text-sm text-zinc-600">
           <span>{user.email}</span>
@@ -51,39 +52,12 @@ export default async function MessagesPage({ searchParams }: { searchParams?: Pr
       </header>
 
       <main className="flex-1 flex min-h-0">
-        {/* Sidebar */}
-        <aside className="w-72 shrink-0 border-r border-zinc-200 dark:border-zinc-800 p-3 overflow-y-auto">
-          <div className="mb-2 text-xs uppercase tracking-wide text-zinc-500">Чаты</div>
-          {chatsError && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-700">
-              Не удалось загрузить список чатов: {chatsError.message}
-            </div>
-          )}
-          {!chatsError && (!chats || chats.length === 0) && (
-            <div className="text-sm text-zinc-600">Пока нет чатов</div>
-          )}
-          <ul className="space-y-1">
-            {(chats || []).map((c: any) => {
-              const id = String(c.telegram_chat_id)
-              const isActive = id === activeChatId
-              const last = c.last_at ? new Date(c.last_at) : null
-              const when = last && !isNaN(last.getTime())
-                ? last.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-                : ''
-              return (
-                <li key={id}>
-                  <a
-                    href={`/?chatId=${encodeURIComponent(id)}`}
-                    className={`flex items-center justify-between rounded-md px-3 py-2 text-sm ${isActive ? 'bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
-                  >
-                    <span className="truncate" title={id}>Chat {id}</span>
-                    <span className={`ml-3 shrink-0 text-[10px] ${isActive ? 'opacity-90' : 'text-zinc-500'}`}>{when}</span>
-                  </a>
-                </li>
-              )
-            })}
-          </ul>
-        </aside>
+        <ChatSidebar
+          chats={chats}
+          allRows={(rows ?? []) as { telegram_chat_id: any; created_at: string }[]}
+          activeChatId={activeChatId}
+          chatsError={chatsError?.message ?? null}
+        />
 
         {/* Active chat */}
         <section className="flex-1 min-w-0 p-3">
@@ -94,7 +68,6 @@ export default async function MessagesPage({ searchParams }: { searchParams?: Pr
           )}
           {activeChatId && (
             <div className="h-full">
-              {/* Reuse the existing Chat component */}
               <Chat chatId={activeChatId} adminEmail={user.email ?? ''} adminId={user.id} />
             </div>
           )}
