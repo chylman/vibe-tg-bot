@@ -21,12 +21,22 @@ type Outbox = {
   telegram_chat_id: string | number | null
 }
 
+type ChatSession = {
+  telegram_chat_id: number
+  manager_id: string
+  connected_at: string
+}
+
 export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; adminEmail: string; adminId: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
   const [userMessages, setUserMessages] = useState<Msg[]>([])
   const [adminMessages, setAdminMessages] = useState<Outbox[]>([])
   const [text, setText] = useState('')
+  const [session, setSession] = useState<ChatSession | null>(null)
+  const [sessionLoading, setSessionLoading] = useState(true)
+  const [sessionError, setSessionError] = useState<string>('')
+  const [sessionWorking, setSessionWorking] = useState(false) // connect/disconnect in progress
   const listRef = useRef<HTMLDivElement>(null)
 
   const chatIdStr = useMemo(() => {
@@ -37,21 +47,25 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
 
   const chatIdNum = useMemo(() => {
     if (chatIdStr == null) return null as any
-    // messages.telegram_chat_id в БД часто bigint; пробуем число, если возможно
     const n = Number(chatIdStr)
     return Number.isFinite(n) ? n : chatIdStr
   }, [chatIdStr])
 
+  const isMySession = session?.manager_id === adminId
+
   useEffect(() => {
     let active = true
+
     async function load() {
       setLoading(true)
+      setSessionLoading(true)
       setError('')
+      setSessionError('')
       try {
         if (chatIdStr == null || chatIdNum == null) {
           throw new Error('Некорректный идентификатор чата')
         }
-        const [mRes, oRes] = await Promise.all([
+        const [mRes, oRes, sRes] = await Promise.all([
           supabase
             .from('messages')
             .select('*')
@@ -64,38 +78,76 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
             .eq('telegram_chat_id', chatIdNum as any)
             .order('created_at', { ascending: true })
             .limit(500),
+          supabase
+            .from('chat_sessions')
+            .select('*')
+            .eq('telegram_chat_id', chatIdNum as any)
+            .maybeSingle(),
         ])
         if (!active) return
         if (mRes.error) throw mRes.error
         if (oRes.error) throw oRes.error
         setUserMessages(mRes.data || [])
         setAdminMessages(oRes.data || [])
+        setSession((sRes.data as ChatSession) ?? null)
       } catch (e: any) {
         setError(e?.message || 'Не удалось загрузить чат')
       } finally {
-        setLoading(false)
-        // автоскролл вниз после загрузки
-        setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'auto' }), 0)
+        if (active) {
+          setLoading(false)
+          setSessionLoading(false)
+          setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'auto' }), 0)
+        }
       }
     }
     load()
 
-    // Realtime подписки (опционально)
     const channelName = 'chat-' + (chatIdStr ?? 'invalid')
     const channel = supabase.channel(channelName)
     if (chatIdStr != null) {
       channel
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `telegram_chat_id=eq.${chatIdStr}` }, (payload) => {
-          setUserMessages((prev) => [...prev, payload.new as any])
-          setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'smooth' }), 50)
-        })
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bot_outbox', filter: `telegram_chat_id=eq.${chatIdStr}` }, (payload) => {
-          setAdminMessages((prev) => [...prev, payload.new as any])
-          setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'smooth' }), 50)
-        })
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages', filter: `telegram_chat_id=eq.${chatIdStr}` },
+          (payload) => {
+            setUserMessages((prev) => [...prev, payload.new as any])
+            setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'smooth' }), 50)
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'bot_outbox', filter: `telegram_chat_id=eq.${chatIdStr}` },
+          (payload) => {
+            setAdminMessages((prev) => {
+              // Replace optimistic entry if present, otherwise append
+              const incoming = payload.new as Outbox
+              const withoutOptimistic = prev.filter((m) => typeof m.id !== 'string' || !m.id.startsWith('temp-'))
+              return [...withoutOptimistic, incoming]
+            })
+            setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'smooth' }), 50)
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'bot_outbox', filter: `telegram_chat_id=eq.${chatIdStr}` },
+          (payload) => {
+            setAdminMessages((prev) =>
+              prev.map((m) => (m.id === (payload.new as Outbox).id ? (payload.new as Outbox) : m))
+            )
+          }
+        )
+        // chat_sessions: no filter needed — the table rows are identified by telegram_chat_id (PK)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'chat_sessions', filter: `telegram_chat_id=eq.${chatIdStr}` },
+          (payload) => { setSession(payload.new as ChatSession) }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'chat_sessions', filter: `telegram_chat_id=eq.${chatIdStr}` },
+          () => { setSession(null) }
+        )
         .subscribe()
-    } else {
-      // Подписку не создаём при некорректном chatId
     }
 
     return () => {
@@ -104,24 +156,70 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     }
   }, [chatIdStr, chatIdNum])
 
+  async function connect() {
+    if (chatIdNum == null) return
+    setSessionWorking(true)
+    setSessionError('')
+    const { error } = await supabase.from('chat_sessions').insert({
+      telegram_chat_id: chatIdNum as number,
+      manager_id: adminId,
+    })
+    setSessionWorking(false)
+    if (error) {
+      // Unique constraint violation means another manager connected first
+      if (error.code === '23505') {
+        setSessionError('Другой менеджер уже подключился к этому чату.')
+      } else {
+        setSessionError(error.message)
+      }
+    }
+    // Session state will update via realtime INSERT event
+  }
+
+  async function disconnect() {
+    if (chatIdNum == null) return
+    setSessionWorking(true)
+    setSessionError('')
+    const { error } = await supabase
+      .from('chat_sessions')
+      .delete()
+      .eq('telegram_chat_id', chatIdNum as number)
+    setSessionWorking(false)
+    if (error) setSessionError(error.message)
+    // Session state will update via realtime DELETE event
+  }
+
   const merged = useMemo(() => {
     type Item = { kind: 'user' | 'admin'; id: string | number; text: string; at: string; meta?: any }
-    const u: Item[] = (userMessages || []).map((m) => ({ kind: 'user', id: `u-${m.id}`, text: m.text || '', at: m.created_at, meta: { username: m.username } }))
-    const a: Item[] = (adminMessages || []).map((m) => ({ kind: 'admin', id: `a-${m.id}`, text: m.text || '', at: m.created_at || m.sent_at || new Date().toISOString(), meta: { status: m.status } }))
+    const u: Item[] = (userMessages || []).map((m) => ({
+      kind: 'user',
+      id: `u-${m.id}`,
+      text: m.text || '',
+      at: m.created_at,
+      meta: { username: m.username },
+    }))
+    const a: Item[] = (adminMessages || []).map((m) => ({
+      kind: 'admin',
+      id: `a-${m.id}`,
+      text: m.text || '',
+      at: m.created_at || m.sent_at || new Date().toISOString(),
+      meta: { status: m.status },
+    }))
     return [...u, ...a].sort((x, y) => new Date(x.at).getTime() - new Date(y.at).getTime())
   }, [userMessages, adminMessages])
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault()
     const value = text.trim()
-    if (!value) return
+    if (!value || !isMySession) return
     if (chatIdStr == null || chatIdNum == null) {
       setError('Нельзя отправить сообщение: некорректный chatId')
       return
     }
 
+    const optimisticId = 'temp-' + Math.random().toString(36).slice(2)
     const optimistic: Outbox = {
-      id: 'temp-' + Math.random().toString(36).slice(2),
+      id: optimisticId,
       text: value,
       created_at: new Date().toISOString(),
       sent_at: null,
@@ -133,21 +231,76 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     setText('')
     setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'smooth' }), 0)
 
-    const { error } = await supabase.from('bot_outbox').insert({
-      text: value,
-      telegram_chat_id: chatIdNum as any,
-      admin_uid: adminId,
+    // Insert to bot_outbox (audit log) and retrieve the new row ID
+    const { data: outboxRow, error: insertError } = await supabase
+      .from('bot_outbox')
+      .insert({ text: value, telegram_chat_id: chatIdNum as any, admin_uid: adminId })
+      .select('id')
+      .single()
+
+    if (insertError) {
+      setError(insertError.message)
+      setAdminMessages((prev) => prev.filter((m) => m.id !== optimisticId))
+      return
+    }
+
+    // Deliver to the user via Telegram Bot API through our Edge Function
+    const { error: fnError } = await supabase.functions.invoke('send-telegram-message', {
+      body: { telegram_chat_id: chatIdNum, text: value, outbox_id: outboxRow.id },
     })
-    if (error) {
-      setError(error.message)
-      // откатить optimistic
-      setAdminMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
+    if (fnError) {
+      setError(`Сообщение записано, но доставка не удалась: ${fnError.message}`)
     }
   }
 
   return (
-    <div className="flex flex-col border border-zinc-200 rounded-lg bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <div ref={listRef} className="h-[60vh] overflow-y-auto p-4 space-y-3">
+    <div className="flex flex-col h-full border border-zinc-200 rounded-lg bg-white dark:border-zinc-800 dark:bg-zinc-900">
+
+      {/* Session banner */}
+      <div className="border-b border-zinc-200 dark:border-zinc-800 px-4 py-2 flex items-center justify-between gap-3 min-h-[44px]">
+        {sessionLoading ? (
+          <span className="text-xs text-zinc-400">Загрузка состояния чата…</span>
+        ) : isMySession ? (
+          <>
+            <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+              ● Вы подключены к чату
+            </span>
+            <button
+              onClick={disconnect}
+              disabled={sessionWorking}
+              className="text-xs rounded-md border border-zinc-300 px-3 py-1 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800 disabled:opacity-50"
+            >
+              {sessionWorking ? 'Отключение…' : 'Отключиться'}
+            </button>
+          </>
+        ) : session ? (
+          <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+            ● Чат занят другим менеджером
+          </span>
+        ) : (
+          <>
+            <span className="text-xs text-zinc-500">
+              ○ Чат не обслуживается — бот отвечает автоматически
+            </span>
+            <button
+              onClick={connect}
+              disabled={sessionWorking}
+              className="text-xs rounded-md bg-black text-white px-3 py-1 hover:opacity-90 dark:bg-white dark:text-black disabled:opacity-50"
+            >
+              {sessionWorking ? 'Подключение…' : 'Подключиться к чату'}
+            </button>
+          </>
+        )}
+      </div>
+
+      {sessionError && (
+        <div className="mx-4 mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          {sessionError}
+        </div>
+      )}
+
+      {/* Message list */}
+      <div ref={listRef} className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0" style={{ height: '0' }}>
         {loading && <div className="text-sm text-zinc-500">Загрузка…</div>}
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-700">{error}</div>
@@ -156,26 +309,57 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
           <div className="text-sm text-zinc-500">Сообщений пока нет.</div>
         )}
         {merged.map((item) => (
-          <div key={item.id} className={`max-w-[80%] ${item.kind === 'admin' ? 'ml-auto text-right' : 'mr-auto'} `}>
-            <div className={`inline-block rounded-lg px-3 py-2 text-sm shadow-sm ${item.kind === 'admin' ? 'bg-emerald-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-100'}`}>
+          <div
+            key={item.id}
+            className={`max-w-[80%] ${item.kind === 'admin' ? 'ml-auto text-right' : 'mr-auto'}`}
+          >
+            <div
+              className={`inline-block rounded-lg px-3 py-2 text-sm shadow-sm ${
+                item.kind === 'admin'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-100'
+              }`}
+            >
               <div className="whitespace-pre-wrap">{item.text}</div>
             </div>
             <div className="mt-1 text-[10px] text-zinc-500">
-              {new Date(item.at).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+              {new Date(item.at).toLocaleString('ru-RU', {
+                hour: '2-digit',
+                minute: '2-digit',
+                day: '2-digit',
+                month: '2-digit',
+              })}
               {item.kind === 'admin' && item.meta?.status ? ` · ${item.meta.status}` : ''}
             </div>
           </div>
         ))}
       </div>
 
-      <form onSubmit={sendMessage} className="border-t border-zinc-200 dark:border-zinc-800 p-3 flex gap-2">
+      {/* Send form — only active when this manager holds the session */}
+      <form
+        onSubmit={sendMessage}
+        className="border-t border-zinc-200 dark:border-zinc-800 p-3 flex gap-2"
+      >
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Написать сообщение…"
-          className="flex-1 rounded-md border px-3 py-2"
+          disabled={!isMySession}
+          placeholder={
+            isMySession
+              ? 'Написать сообщение…'
+              : session
+              ? 'Чат занят другим менеджером'
+              : 'Подключитесь к чату, чтобы писать'
+          }
+          className="flex-1 rounded-md border px-3 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
         />
-        <button type="submit" className="rounded-md bg-black text-white px-4 py-2 hover:opacity-90">Отправить</button>
+        <button
+          type="submit"
+          disabled={!isMySession || !text.trim()}
+          className="rounded-md bg-black text-white px-4 py-2 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Отправить
+        </button>
       </form>
     </div>
   )
