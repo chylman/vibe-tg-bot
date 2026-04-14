@@ -38,6 +38,11 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
   const [sessionError, setSessionError] = useState<string>('')
   const [sessionWorking, setSessionWorking] = useState(false) // connect/disconnect in progress
   const listRef = useRef<HTMLDivElement>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
+    bottomRef.current?.scrollIntoView({ behavior })
+  }
 
   const chatIdStr = useMemo(() => {
     const raw = (chatId ?? '').toString().trim()
@@ -52,6 +57,11 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
   }, [chatIdStr])
 
   const isMySession = session?.manager_id === adminId
+
+  // Scroll to bottom once the initial load is done
+  useEffect(() => {
+    if (!loading) scrollToBottom('auto')
+  }, [loading])
 
   useEffect(() => {
     let active = true
@@ -96,7 +106,6 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
         if (active) {
           setLoading(false)
           setSessionLoading(false)
-          setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'auto' }), 0)
         }
       }
     }
@@ -111,7 +120,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
           { event: 'INSERT', schema: 'public', table: 'messages', filter: `telegram_chat_id=eq.${chatIdStr}` },
           (payload) => {
             setUserMessages((prev) => [...prev, payload.new as any])
-            setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'smooth' }), 50)
+            setTimeout(() => scrollToBottom('smooth'), 50)
           }
         )
         .on(
@@ -124,7 +133,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
               const withoutOptimistic = prev.filter((m) => typeof m.id !== 'string' || !m.id.startsWith('temp-'))
               return [...withoutOptimistic, incoming]
             })
-            setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'smooth' }), 50)
+            setTimeout(() => scrollToBottom('smooth'), 50)
           }
         )
         .on(
@@ -247,7 +256,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     }
     setAdminMessages((prev) => [...prev, optimistic])
     setText('')
-    setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: 'smooth' }), 0)
+    setTimeout(() => scrollToBottom('smooth'), 0)
 
     // Insert to bot_outbox (audit log) and retrieve the new row ID
     const { data: outboxRow, error: insertError } = await supabase
@@ -351,6 +360,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
             </div>
           </div>
         ))}
+        <div ref={bottomRef} />
       </div>
 
       {/* Send form — only active when this manager holds the session */}
