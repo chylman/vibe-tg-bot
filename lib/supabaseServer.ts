@@ -12,10 +12,10 @@ export async function getSupabaseServer() {
           return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options: any) {
-          cookieStore.set({ name, value, ...options });
+          try { cookieStore.set({ name, value, ...options }); } catch {}
         },
         remove(name: string, options: any) {
-          cookieStore.set({ name, value: '', ...options });
+          try { cookieStore.set({ name, value: '', ...options }); } catch {}
         },
       },
     }
