@@ -10,9 +10,9 @@ export default async function ChatPage({ params }: { params: { chatId: string } 
   const chatId = params.chatId
 
   return (
-    <div className="min-h-screen flex flex-col items-center px-4 py-6">
-      <main className="w-full max-w-3xl">
-        <div className="mb-4 flex items-center justify-between">
+    <div className="h-screen flex flex-col items-center px-4 py-6 overflow-hidden">
+      <main className="w-full max-w-3xl flex flex-col flex-1 min-h-0">
+        <div className="mb-4 flex items-center justify-between shrink-0">
           <h1 className="text-2xl font-semibold">Чат с пользователем</h1>
           <div className="text-sm text-zinc-600">Telegram Chat ID: {chatId}</div>
         </div>
