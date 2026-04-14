@@ -164,15 +164,21 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
       telegram_chat_id: chatIdNum as number,
       manager_id: adminId,
     })
-    setSessionWorking(false)
     if (error) {
+      setSessionWorking(false)
       // Unique constraint violation means another manager connected first
       if (error.code === '23505') {
         setSessionError('Другой менеджер уже подключился к этому чату.')
       } else {
         setSessionError(error.message)
       }
+      return
     }
+    // Notify the Telegram user that a manager has joined
+    await supabase.functions.invoke('notify-manager-connected', {
+      body: { telegram_chat_id: chatIdNum },
+    })
+    setSessionWorking(false)
     // Session state will update via realtime INSERT event
   }
 
