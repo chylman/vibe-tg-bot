@@ -174,25 +174,37 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
       }
       return
     }
-    // Notify the Telegram user that a manager has joined
+    // Optimistically update UI without waiting for realtime
+    setSession({ telegram_chat_id: chatIdNum as number, manager_id: adminId, connected_at: new Date().toISOString() })
+    setSessionWorking(false)
+    // Notify the Telegram user
     await supabase.functions.invoke('notify-manager-connected', {
       body: { telegram_chat_id: chatIdNum },
     })
-    setSessionWorking(false)
-    // Session state will update via realtime INSERT event
   }
 
   async function disconnect() {
     if (chatIdNum == null) return
     setSessionWorking(true)
     setSessionError('')
+
+    // Notify the user before removing the session
+    await supabase.functions.invoke('notify-manager-disconnected', {
+      body: { telegram_chat_id: chatIdNum },
+    })
+
     const { error } = await supabase
       .from('chat_sessions')
       .delete()
       .eq('telegram_chat_id', chatIdNum as number)
+    if (error) {
+      setSessionWorking(false)
+      setSessionError(error.message)
+      return
+    }
+    // Optimistically update UI without waiting for realtime
+    setSession(null)
     setSessionWorking(false)
-    if (error) setSessionError(error.message)
-    // Session state will update via realtime DELETE event
   }
 
   const merged = useMemo(() => {
