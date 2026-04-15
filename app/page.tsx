@@ -12,29 +12,25 @@ export default async function MessagesPage({ searchParams }: { searchParams?: Pr
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login')
 
-  // Aggregate chats by last activity from messages (client-side reduce due to lack of group())
-  const { data: rows, error: chatsError } = await supabase
+  // Chat list from clients table — already one row per chat with last_seen_at
+  const { data: clientRows, error: chatsError } = await supabase
+    .from('clients')
+    .select('telegram_chat_id, last_seen_at')
+    .order('last_seen_at', { ascending: false })
+    .limit(200)
+
+  const chats: { telegram_chat_id: any; last_at: string }[] = (clientRows ?? []).map((c) => ({
+    telegram_chat_id: c.telegram_chat_id,
+    last_at: c.last_seen_at,
+  }))
+
+  // Recent user messages for unread count computation in the sidebar
+  const { data: rows } = await supabase
     .from('messages')
     .select('telegram_chat_id, created_at')
     .eq('sender', 'user')
-    .not('telegram_chat_id', 'is', null)
     .order('created_at', { ascending: false })
-    .limit(1000)
-
-  // Reduce to unique chats with last activity timestamp
-  const chats: { telegram_chat_id: any; last_at: string }[] = []
-  {
-    const seen = new Set<string>()
-    for (const r of rows ?? []) {
-      const id = (r as any).telegram_chat_id
-      const created = (r as any).created_at as string | null
-      if (id == null || !created) continue
-      const key = String(id)
-      if (seen.has(key)) continue
-      seen.add(key)
-      chats.push({ telegram_chat_id: id, last_at: created })
-    }
-  }
+    .limit(500)
 
   // Determine selected chatId from URL or default to most recent
   const qp = (await searchParams) || {}
