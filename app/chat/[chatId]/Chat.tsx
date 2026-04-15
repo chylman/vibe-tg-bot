@@ -20,6 +20,7 @@ type ChatSession = {
   telegram_chat_id: number
   manager_id: string
   connected_at: string
+  managers?: { name: string } | null
 }
 
 export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; adminEmail: string; adminId: string }) {
@@ -32,6 +33,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
   const [sessionLoading, setSessionLoading] = useState(true)
   const [sessionError, setSessionError] = useState<string>('')
   const [sessionWorking, setSessionWorking] = useState(false) // connect/disconnect in progress
+  const [wasForceDisconnected, setWasForceDisconnected] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -60,11 +62,12 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
 
   const isMySession = session?.manager_id === adminId
 
-  // Reset divider whenever the chat changes
+  // Reset divider and force-disconnect notice whenever the chat changes
   useEffect(() => {
     loadedMsgIds.current = new Set()
     setFirstNewMsgId(null)
     setDividerVisible(false)
+    setWasForceDisconnected(false)
     if (dividerTimerRef.current) clearTimeout(dividerTimerRef.current)
   }, [chatIdStr])
 
@@ -120,7 +123,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
             .limit(500),
           supabase
             .from('chat_sessions')
-            .select('*')
+            .select('*, managers(name)')
             .eq('telegram_chat_id', chatIdNum as any)
             .maybeSingle(),
         ])
@@ -181,7 +184,14 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
         .on(
           'postgres_changes',
           { event: 'DELETE', schema: 'public', table: 'chat_sessions', filter: `telegram_chat_id=eq.${chatIdStr}` },
-          () => { setSession(null) }
+          () => {
+            setSession((prev) => {
+              if (prev?.manager_id === adminId) {
+                setWasForceDisconnected(true)
+              }
+              return null
+            })
+          }
         )
         .subscribe()
     }
@@ -239,6 +249,28 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
       return
     }
     // Optimistically update UI without waiting for realtime
+    setSession(null)
+    setSessionWorking(false)
+  }
+
+  async function forceDisconnect() {
+    if (chatIdNum == null) return
+    setSessionWorking(true)
+    setSessionError('')
+
+    await supabase.functions.invoke('notify-manager-disconnected', {
+      body: { telegram_chat_id: chatIdNum },
+    })
+
+    const { error } = await supabase
+      .from('chat_sessions')
+      .delete()
+      .eq('telegram_chat_id', chatIdNum as number)
+    if (error) {
+      setSessionWorking(false)
+      setSessionError(error.message)
+      return
+    }
     setSession(null)
     setSessionWorking(false)
   }
@@ -329,9 +361,18 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
             </button>
           </>
         ) : session ? (
-          <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">
-            ● Чат занят другим менеджером
-          </span>
+          <>
+            <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+              ● Подключён: {session.managers?.name ?? 'другой менеджер'}
+            </span>
+            <button
+              onClick={forceDisconnect}
+              disabled={sessionWorking}
+              className="text-xs rounded-md border border-red-300 text-red-600 px-3 py-1 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950 disabled:opacity-50"
+            >
+              {sessionWorking ? 'Отключение…' : 'Отключить менеджера'}
+            </button>
+          </>
         ) : (
           <>
             <span className="text-xs text-zinc-500">
@@ -347,6 +388,18 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
           </>
         )}
       </div>
+
+      {wasForceDisconnected && (
+        <div className="mx-4 mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 flex items-center justify-between">
+          <span>Вы были отключены от чата другим менеджером.</span>
+          <button
+            onClick={() => setWasForceDisconnected(false)}
+            className="ml-3 text-red-500 hover:text-red-700 font-bold leading-none"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {sessionError && (
         <div className="mx-4 mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
