@@ -1,7 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+
+const PAGE_SIZE = 50
 
 type Msg = {
   id: string
@@ -34,8 +36,13 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
   const [sessionError, setSessionError] = useState<string>('')
   const [sessionWorking, setSessionWorking] = useState(false) // connect/disconnect in progress
   const [wasForceDisconnected, setWasForceDisconnected] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const topRef = useRef<HTMLDivElement>(null)
+  const oldestAtRef = useRef<string | null>(null)
+  const pendingScrollRestore = useRef<number | null>(null)
 
   // IDs of user messages that existed when the chat first loaded.
   // Any user message NOT in this set is "new" and triggers the divider.
@@ -62,12 +69,16 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
 
   const isMySession = session?.manager_id === adminId
 
-  // Reset divider and force-disconnect notice whenever the chat changes
+  // Reset all per-chat state whenever the chat changes
   useEffect(() => {
     loadedMsgIds.current = new Set()
     setFirstNewMsgId(null)
     setDividerVisible(false)
     setWasForceDisconnected(false)
+    setHasMore(false)
+    setIsLoadingMore(false)
+    oldestAtRef.current = null
+    pendingScrollRestore.current = null
     if (dividerTimerRef.current) clearTimeout(dividerTimerRef.current)
   }, [chatIdStr])
 
@@ -96,6 +107,50 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     }
   }, [userMessages.length])
 
+  async function loadMore() {
+    if (!hasMore || isLoadingMore || chatIdNum == null || !oldestAtRef.current) return
+    setIsLoadingMore(true)
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('telegram_chat_id', chatIdNum as any)
+      .lt('created_at', oldestAtRef.current)
+      .order('created_at', { ascending: false })
+      .limit(PAGE_SIZE)
+    if (error || !data) { setIsLoadingMore(false); return }
+    const older = ([...data].reverse()) as Msg[]
+    if (older.length > 0) oldestAtRef.current = older[0].created_at
+    setHasMore(data.length === PAGE_SIZE)
+    // Snapshot scroll height before prepend so we can restore position
+    pendingScrollRestore.current = listRef.current?.scrollHeight ?? null
+    // Mark prepended IDs as already-seen so they don't trigger the new-messages divider
+    older.filter(m => m.sender === 'user').forEach(m => loadedMsgIds.current.add(String(m.id)))
+    setUserMessages(prev => [...older.filter(m => m.sender === 'user'), ...prev])
+    setAdminMessages(prev => [...older.filter(m => m.sender === 'manager'), ...prev])
+    setIsLoadingMore(false)
+  }
+
+  // After prepend: restore scroll position so the view doesn't jump to the top
+  useLayoutEffect(() => {
+    if (pendingScrollRestore.current !== null && listRef.current) {
+      listRef.current.scrollTop += listRef.current.scrollHeight - pendingScrollRestore.current
+      pendingScrollRestore.current = null
+    }
+  })
+
+  // IntersectionObserver: trigger loadMore when the top sentinel enters view
+  useEffect(() => {
+    const el = topRef.current
+    const container = listRef.current
+    if (!el || !container || !hasMore || isLoadingMore) return
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMore() },
+      { root: container, threshold: 0.1 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, isLoadingMore, chatIdStr])
+
   function markAsRead(currentMerged: typeof merged) {
     if (!chatIdStr || currentMerged.length === 0) return
     localStorage.setItem('lastRead_' + chatIdStr, currentMerged[currentMerged.length - 1].at)
@@ -119,8 +174,8 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
             .from('messages')
             .select('*')
             .eq('telegram_chat_id', chatIdNum as any)
-            .order('created_at', { ascending: true })
-            .limit(500),
+            .order('created_at', { ascending: false })
+            .limit(PAGE_SIZE),
           supabase
             .from('chat_sessions')
             .select('*, managers(name)')
@@ -129,7 +184,9 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
         ])
         if (!active) return
         if (mRes.error) throw mRes.error
-        const all = (mRes.data || []) as Msg[]
+        const all = ([...(mRes.data || [])].reverse()) as Msg[]
+        oldestAtRef.current = all.length > 0 ? all[0].created_at : null
+        setHasMore(mRes.data!.length === PAGE_SIZE)
         setUserMessages(all.filter(m => m.sender === 'user'))
         setAdminMessages(all.filter(m => m.sender === 'manager'))
         setSession((sRes.data as ChatSession) ?? null)
@@ -409,6 +466,8 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
 
       {/* Message list */}
       <div ref={listRef} className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0" style={{ height: '0' }}>
+        <div ref={topRef} />
+        {isLoadingMore && <div className="text-center text-xs text-zinc-400 py-1">Загрузка…</div>}
         {loading && <div className="text-sm text-zinc-500">Загрузка…</div>}
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-700">{error}</div>
