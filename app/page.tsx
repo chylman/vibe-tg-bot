@@ -16,6 +16,7 @@ export default async function MessagesPage({ searchParams }: { searchParams?: Pr
   const { data: rows, error: chatsError } = await supabase
     .from('messages')
     .select('telegram_chat_id, created_at')
+    .eq('sender', 'user')
     .not('telegram_chat_id', 'is', null)
     .order('created_at', { ascending: false })
     .limit(1000)

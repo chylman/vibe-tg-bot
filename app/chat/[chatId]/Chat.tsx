@@ -4,21 +4,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 type Msg = {
-  id: number | string
+  id: string
   text: string | null
   created_at: string
+  sender: 'user' | 'manager'
   username?: string | null
   telegram_chat_id?: string | number | null
-}
-
-type Outbox = {
-  id: number | string
-  text: string | null
-  created_at: string
-  sent_at: string | null
-  status: string | null
-  admin_uid: string | null
-  telegram_chat_id: string | number | null
+  // manager-message fields
+  admin_uid?: string | null
+  status?: string | null
+  sent_at?: string | null
 }
 
 type ChatSession = {
@@ -31,7 +26,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
   const [userMessages, setUserMessages] = useState<Msg[]>([])
-  const [adminMessages, setAdminMessages] = useState<Outbox[]>([])
+  const [adminMessages, setAdminMessages] = useState<Msg[]>([])
   const [text, setText] = useState('')
   const [session, setSession] = useState<ChatSession | null>(null)
   const [sessionLoading, setSessionLoading] = useState(true)
@@ -116,15 +111,9 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
         if (chatIdStr == null || chatIdNum == null) {
           throw new Error('Некорректный идентификатор чата')
         }
-        const [mRes, oRes, sRes] = await Promise.all([
+        const [mRes, sRes] = await Promise.all([
           supabase
             .from('messages')
-            .select('*')
-            .eq('telegram_chat_id', chatIdNum as any)
-            .order('created_at', { ascending: true })
-            .limit(500),
-          supabase
-            .from('bot_outbox')
             .select('*')
             .eq('telegram_chat_id', chatIdNum as any)
             .order('created_at', { ascending: true })
@@ -137,9 +126,9 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
         ])
         if (!active) return
         if (mRes.error) throw mRes.error
-        if (oRes.error) throw oRes.error
-        setUserMessages(mRes.data || [])
-        setAdminMessages(oRes.data || [])
+        const all = (mRes.data || []) as Msg[]
+        setUserMessages(all.filter(m => m.sender === 'user'))
+        setAdminMessages(all.filter(m => m.sender === 'manager'))
         setSession((sRes.data as ChatSession) ?? null)
       } catch (e: any) {
         setError(e?.message || 'Не удалось загрузить чат')
@@ -160,30 +149,27 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'messages', filter: `telegram_chat_id=eq.${chatIdStr}` },
           (payload) => {
-            setUserMessages((prev) => [...prev, payload.new as any])
+            const msg = payload.new as Msg
+            if (msg.sender === 'manager') {
+              setAdminMessages((prev) => {
+                // Replace optimistic entry if present, otherwise append
+                const withoutOptimistic = prev.filter((m) => !m.id.startsWith('temp-'))
+                return [...withoutOptimistic, msg]
+              })
+            } else {
+              setUserMessages((prev) => [...prev, msg])
+            }
             setTimeout(() => scrollToBottom('smooth'), 50)
           }
         )
         .on(
           'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'bot_outbox', filter: `telegram_chat_id=eq.${chatIdStr}` },
+          { event: 'UPDATE', schema: 'public', table: 'messages', filter: `telegram_chat_id=eq.${chatIdStr}` },
           (payload) => {
-            setAdminMessages((prev) => {
-              // Replace optimistic entry if present, otherwise append
-              const incoming = payload.new as Outbox
-              const withoutOptimistic = prev.filter((m) => typeof m.id !== 'string' || !m.id.startsWith('temp-'))
-              return [...withoutOptimistic, incoming]
-            })
-            setTimeout(() => scrollToBottom('smooth'), 50)
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'bot_outbox', filter: `telegram_chat_id=eq.${chatIdStr}` },
-          (payload) => {
-            setAdminMessages((prev) =>
-              prev.map((m) => (m.id === (payload.new as Outbox).id ? (payload.new as Outbox) : m))
-            )
+            const msg = payload.new as Msg
+            if (msg.sender === 'manager') {
+              setAdminMessages((prev) => prev.map((m) => (m.id === msg.id ? msg : m)))
+            }
           }
         )
         // chat_sessions: no filter needed — the table rows are identified by telegram_chat_id (PK)
@@ -258,19 +244,19 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
   }
 
   const merged = useMemo(() => {
-    type Item = { kind: 'user' | 'admin'; id: string | number; text: string; at: string; meta?: any }
-    const u: Item[] = (userMessages || []).map((m) => ({
+    type Item = { kind: 'user' | 'admin'; id: string; text: string; at: string; meta?: any }
+    const u: Item[] = userMessages.map((m) => ({
       kind: 'user',
       id: `u-${m.id}`,
       text: m.text || '',
       at: m.created_at,
       meta: { username: m.username },
     }))
-    const a: Item[] = (adminMessages || []).map((m) => ({
+    const a: Item[] = adminMessages.map((m) => ({
       kind: 'admin',
       id: `a-${m.id}`,
       text: m.text || '',
-      at: m.created_at || m.sent_at || new Date().toISOString(),
+      at: m.created_at,
       meta: { status: m.status },
     }))
     return [...u, ...a].sort((x, y) => new Date(x.at).getTime() - new Date(y.at).getTime())
@@ -286,10 +272,11 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     }
 
     const optimisticId = 'temp-' + Math.random().toString(36).slice(2)
-    const optimistic: Outbox = {
+    const optimistic: Msg = {
       id: optimisticId,
       text: value,
       created_at: new Date().toISOString(),
+      sender: 'manager',
       sent_at: null,
       status: 'pending',
       admin_uid: adminId,
@@ -299,10 +286,10 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     setText('')
     setTimeout(() => scrollToBottom('smooth'), 0)
 
-    // Insert to bot_outbox (audit log) and retrieve the new row ID
-    const { data: outboxRow, error: insertError } = await supabase
-      .from('bot_outbox')
-      .insert({ text: value, telegram_chat_id: chatIdNum as any, admin_uid: adminId })
+    // Insert manager message into messages table and retrieve the new row ID
+    const { data: msgRow, error: insertError } = await supabase
+      .from('messages')
+      .insert({ text: value, telegram_chat_id: chatIdNum as any, admin_uid: adminId, sender: 'manager', status: 'pending' })
       .select('id')
       .single()
 
@@ -314,7 +301,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
 
     // Deliver to the user via Telegram Bot API through our Edge Function
     const { error: fnError } = await supabase.functions.invoke('send-telegram-message', {
-      body: { telegram_chat_id: chatIdNum, text: value, outbox_id: outboxRow.id },
+      body: { telegram_chat_id: chatIdNum, text: value, message_id: msgRow.id },
     })
     if (fnError) {
       setError(`Сообщение записано, но доставка не удалась: ${fnError.message}`)
