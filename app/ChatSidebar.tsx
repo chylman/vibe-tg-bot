@@ -10,11 +10,13 @@ export default function ChatSidebar({
   allRows,
   activeChatId,
   chatsError,
+  linkBase = '/chats',
 }: {
   chats: Chat[]
   allRows: Row[]
   activeChatId?: string
   chatsError?: string | null
+  linkBase?: string
 }) {
   const [lastReadMap, setLastReadMap] = useState<Record<string, string>>({})
 
@@ -80,7 +82,7 @@ export default function ChatSidebar({
           return (
             <li key={id}>
               <a
-                href={`/?chatId=${encodeURIComponent(id)}`}
+                href={`${linkBase}?chatId=${encodeURIComponent(id)}`}
                 className={`flex items-center justify-between rounded-md px-3 py-2 text-sm ${
                   isActive
                     ? 'bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900'

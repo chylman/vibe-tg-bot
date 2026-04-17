@@ -1,5 +1,6 @@
 import { getSupabaseServer } from '@/lib/supabaseServer'
 import { redirect } from 'next/navigation'
+import { AppNav } from '@/app/AppNav'
 import Chat from './Chat'
 
 export default async function ChatPage({ params }: { params: Promise<{ chatId: string }> }) {
@@ -10,11 +11,12 @@ export default async function ChatPage({ params }: { params: Promise<{ chatId: s
   const { chatId } = await params
 
   return (
-    <div className="h-screen flex flex-col items-center px-4 py-6 overflow-hidden">
-      <main className="w-full max-w-3xl flex flex-col flex-1 min-h-0">
-        <div className="mb-4 flex items-center justify-between shrink-0">
-          <h1 className="text-2xl font-semibold">Чат с пользователем</h1>
-          <div className="text-sm text-zinc-600">Telegram Chat ID: {chatId}</div>
+    <div className="h-screen flex flex-col overflow-hidden">
+      <AppNav email={user.email ?? ''} active="/chats" />
+      <main className="flex-1 flex flex-col min-h-0 px-4 py-4 max-w-3xl mx-auto w-full">
+        <div className="mb-3 flex items-center justify-between shrink-0">
+          <h1 className="text-lg font-semibold">Чат с пользователем</h1>
+          <span className="text-sm text-zinc-500">ID: {chatId}</span>
         </div>
         <Chat chatId={chatId} adminEmail={user.email ?? ''} adminId={user.id} />
       </main>
