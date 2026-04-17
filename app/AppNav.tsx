@@ -2,9 +2,10 @@ import Link from 'next/link'
 import { signOut } from './actions/auth'
 
 const NAV_LINKS = [
-  { href: '/',        label: 'Главная'  },
-  { href: '/chats',   label: 'Чаты'    },
-  { href: '/tickets', label: 'Тикеты'  },
+  { href: '/',                label: 'Главная'      },
+  { href: '/chats',           label: 'Чаты'         },
+  { href: '/tickets',         label: 'Тикеты'       },
+  { href: '/knowledge-base',  label: 'База знаний'  },
 ]
 
 export function AppNav({ email, active }: { email: string; active: string }) {

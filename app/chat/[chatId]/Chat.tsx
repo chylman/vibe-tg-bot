@@ -9,7 +9,7 @@ type Msg = {
   id: string
   text: string | null
   created_at: string
-  sender: 'user' | 'manager'
+  sender: 'user' | 'manager' | 'bot'
   username?: string | null
   telegram_chat_id?: string | number | null
   // manager-message fields
@@ -30,6 +30,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
   const [error, setError] = useState<string>('')
   const [userMessages, setUserMessages] = useState<Msg[]>([])
   const [adminMessages, setAdminMessages] = useState<Msg[]>([])
+  const [botMessages, setBotMessages] = useState<Msg[]>([])
   const [text, setText] = useState('')
   const [session, setSession] = useState<ChatSession | null>(null)
   const [sessionLoading, setSessionLoading] = useState(true)
@@ -127,6 +128,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     older.filter(m => m.sender === 'user').forEach(m => loadedMsgIds.current.add(String(m.id)))
     setUserMessages(prev => [...older.filter(m => m.sender === 'user'), ...prev])
     setAdminMessages(prev => [...older.filter(m => m.sender === 'manager'), ...prev])
+    setBotMessages(prev => [...older.filter(m => m.sender === 'bot'), ...prev])
     setIsLoadingMore(false)
   }
 
@@ -189,6 +191,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
         setHasMore(mRes.data!.length === PAGE_SIZE)
         setUserMessages(all.filter(m => m.sender === 'user'))
         setAdminMessages(all.filter(m => m.sender === 'manager'))
+        setBotMessages(all.filter(m => m.sender === 'bot'))
         setSession((sRes.data as ChatSession) ?? null)
       } catch (e: any) {
         setError(e?.message || 'Не удалось загрузить чат')
@@ -216,6 +219,8 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
                 const withoutOptimistic = prev.filter((m) => !m.id.startsWith('temp-'))
                 return [...withoutOptimistic, msg]
               })
+            } else if (msg.sender === 'bot') {
+              setBotMessages((prev) => [...prev, msg])
             } else {
               setUserMessages((prev) => [...prev, msg])
             }
@@ -333,7 +338,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
   }
 
   const merged = useMemo(() => {
-    type Item = { kind: 'user' | 'admin'; id: string; text: string; at: string; meta?: any }
+    type Item = { kind: 'user' | 'admin' | 'bot'; id: string; text: string; at: string; meta?: any }
     const u: Item[] = userMessages.map((m) => ({
       kind: 'user',
       id: `u-${m.id}`,
@@ -348,8 +353,14 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
       at: m.created_at,
       meta: { status: m.status },
     }))
-    return [...u, ...a].sort((x, y) => new Date(x.at).getTime() - new Date(y.at).getTime())
-  }, [userMessages, adminMessages])
+    const b: Item[] = botMessages.map((m) => ({
+      kind: 'bot',
+      id: `b-${m.id}`,
+      text: m.text || '',
+      at: m.created_at,
+    }))
+    return [...u, ...a, ...b].sort((x, y) => new Date(x.at).getTime() - new Date(y.at).getTime())
+  }, [userMessages, adminMessages, botMessages])
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault()
@@ -498,10 +509,17 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
           <div
             className={`max-w-[80%] ${item.kind === 'admin' ? 'ml-auto text-right' : 'mr-auto'}`}
           >
+            {item.kind === 'bot' && (
+              <div className="mb-0.5 text-[10px] text-indigo-400 flex items-center gap-1">
+                <span>🤖</span><span>Автоответ</span>
+              </div>
+            )}
             <div
               className={`inline-block rounded-lg px-3 py-2 text-sm shadow-sm ${
                 item.kind === 'admin'
                   ? 'bg-emerald-600 text-white'
+                  : item.kind === 'bot'
+                  ? 'bg-indigo-100 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-100'
                   : 'bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-100'
               }`}
             >
