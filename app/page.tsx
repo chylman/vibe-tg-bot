@@ -36,12 +36,12 @@ export default async function DashboardPage() {
     .eq('user_id', user.id)
     .single()
 
-  // Active session for this manager
-  const { data: activeSession } = await supabase
+  // Active sessions for this manager (can be multiple)
+  const { data: activeSessions } = await supabase
     .from('chat_sessions')
     .select('telegram_chat_id, connected_at')
     .eq('manager_id', user.id)
-    .maybeSingle()
+    .order('connected_at', { ascending: false })
 
   // Chats preview via view (last 8, sorted by last message)
   const { data: chatsPreview } = await (supabase as any)
@@ -90,20 +90,25 @@ export default async function DashboardPage() {
             )}
           </div>
 
-          {activeSession ? (
-            <Link
-              href={`/chats?chatId=${activeSession.telegram_chat_id}`}
-              className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20 px-4 py-2.5 text-sm hover:opacity-80 transition-opacity"
-            >
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-emerald-700 dark:text-emerald-400">
-                Активный чат: {activeSession.telegram_chat_id}
-              </span>
-            </Link>
+          {activeSessions && activeSessions.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {activeSessions.map((s: any) => (
+                <Link
+                  key={s.telegram_chat_id}
+                  href={`/chats?chatId=${s.telegram_chat_id}`}
+                  className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20 px-3 py-2 text-sm hover:opacity-80 transition-opacity"
+                >
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <span className="text-emerald-700 dark:text-emerald-400">
+                    Чат {s.telegram_chat_id}
+                  </span>
+                </Link>
+              ))}
+            </div>
           ) : (
             <div className="flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-800 px-4 py-2.5 text-sm text-zinc-500">
               <span className="h-2 w-2 rounded-full bg-zinc-300 dark:bg-zinc-600" />
-              Нет активного чата
+              Нет активных чатов
             </div>
           )}
         </div>
