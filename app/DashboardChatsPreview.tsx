@@ -106,7 +106,7 @@ export default function DashboardChatsPreview({
                     </div>
                     <p className="text-xs text-zinc-500 truncate mt-0.5">{preview}</p>
                   </div>
-                  <span className="ml-4 shrink-0 text-[10px] text-zinc-400 mt-0.5">{when}</span>
+                  <span suppressHydrationWarning className="ml-4 shrink-0 text-[10px] text-zinc-400 mt-0.5">{when}</span>
                 </Link>
               </li>
             )

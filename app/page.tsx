@@ -151,7 +151,7 @@ export default async function DashboardPage() {
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium truncate">{t.title}</p>
                             {t.due_at && (
-                              <p className={`text-[11px] mt-0.5 ${isOverdue ? 'text-red-500 font-medium' : 'text-zinc-400'}`}>
+                              <p suppressHydrationWarning className={`text-[11px] mt-0.5 ${isOverdue ? 'text-red-500 font-medium' : 'text-zinc-400'}`}>
                                 {isOverdue ? 'Просрочен: ' : 'Срок: '}
                                 {new Date(t.due_at).toLocaleString('ru-RU', {
                                   day: '2-digit', month: '2-digit',

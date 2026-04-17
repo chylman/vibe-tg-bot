@@ -249,7 +249,7 @@ export default function TicketsClient({ adminId }: { adminId: string }) {
                     {t.due_at && (
                       <span>
                         Срок:{' '}
-                        <span className={new Date(t.due_at) < new Date() && t.status !== 'closed' ? 'text-red-500 font-medium' : ''}>
+                        <span suppressHydrationWarning className={new Date(t.due_at) < new Date() && t.status !== 'closed' ? 'text-red-500 font-medium' : ''}>
                           {new Date(t.due_at).toLocaleString('ru-RU', {
                             day: '2-digit', month: '2-digit', year: '2-digit',
                             hour: '2-digit', minute: '2-digit',

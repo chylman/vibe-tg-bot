@@ -100,6 +100,7 @@ export default function ChatSidebar({
                   )}
                 </div>
                 <span
+                  suppressHydrationWarning
                   className={`ml-3 shrink-0 text-[10px] ${
                     isActive ? 'opacity-80' : 'text-zinc-500'
                   }`}

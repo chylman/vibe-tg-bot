@@ -525,7 +525,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
             >
               <div className="whitespace-pre-wrap">{item.text}</div>
             </div>
-            <div className="mt-1 text-[10px] text-zinc-500">
+            <div suppressHydrationWarning className="mt-1 text-[10px] text-zinc-500">
               {new Date(item.at).toLocaleString('ru-RU', {
                 hour: '2-digit',
                 minute: '2-digit',
