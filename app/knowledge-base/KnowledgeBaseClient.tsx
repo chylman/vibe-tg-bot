@@ -10,6 +10,7 @@ type Entry = {
   category: string | null
   is_active: boolean
   created_at: string
+  created_by: string | null
 }
 
 const EMPTY_FORM = { question: '', answer: '', category: '' }
@@ -28,7 +29,7 @@ export default function KnowledgeBaseClient({ adminId }: { adminId: string }) {
     setLoading(true)
     const { data, error } = await supabase
       .from('knowledge_base')
-      .select('id, question, answer, category, is_active, created_at')
+      .select('id, question, answer, category, is_active, created_at, created_by')
       .order('created_at', { ascending: false })
     if (error) setError(error.message)
     else setEntries((data ?? []) as Entry[])
@@ -89,7 +90,7 @@ export default function KnowledgeBaseClient({ adminId }: { adminId: string }) {
     } else {
       const { data, error } = await supabase
         .from('knowledge_base')
-        .insert({ ...payload, is_active: true })
+        .insert({ ...payload, is_active: true, created_by: adminId })
         .select('id')
         .single()
       if (error) { setError(error.message); setSaving(false); return }
