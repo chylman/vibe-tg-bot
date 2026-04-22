@@ -12,38 +12,51 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
-      bot_outbox: {
+      ai_usage: {
         Row: {
-          admin_uid: string | null
-          created_at: string
-          error_message: string | null
-          id: number
-          sent_at: string | null
-          status: string
-          telegram_chat_id: number
-          text: string
+          calls: number
+          date: string
+          tokens_used: number
+          updated_at: string
         }
         Insert: {
-          admin_uid?: string | null
-          created_at?: string
-          error_message?: string | null
-          id?: number
-          sent_at?: string | null
-          status?: string
-          telegram_chat_id: number
-          text: string
+          calls?: number
+          date?: string
+          tokens_used?: number
+          updated_at?: string
         }
         Update: {
-          admin_uid?: string | null
-          created_at?: string
-          error_message?: string | null
-          id?: number
-          sent_at?: string | null
-          status?: string
-          telegram_chat_id?: number
-          text?: string
+          calls?: number
+          date?: string
+          tokens_used?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -63,7 +76,97 @@ export type Database = {
           manager_id?: string
           telegram_chat_id?: number
         }
+        Relationships: [
+          {
+            foreignKeyName: "fk_chat_sessions_client"
+            columns: ["telegram_chat_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["telegram_chat_id"]
+          },
+          {
+            foreignKeyName: "fk_chat_sessions_client"
+            columns: ["telegram_chat_id"]
+            isOneToOne: true
+            referencedRelation: "clients_with_last_message"
+            referencedColumns: ["telegram_chat_id"]
+          },
+          {
+            foreignKeyName: "fk_chat_sessions_manager"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "managers"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          first_seen_at: string
+          last_seen_at: string
+          notes: string | null
+          telegram_chat_id: number
+          username: string | null
+        }
+        Insert: {
+          first_seen_at?: string
+          last_seen_at?: string
+          notes?: string | null
+          telegram_chat_id: number
+          username?: string | null
+        }
+        Update: {
+          first_seen_at?: string
+          last_seen_at?: string
+          notes?: string | null
+          telegram_chat_id?: number
+          username?: string | null
+        }
         Relationships: []
+      }
+      knowledge_base: {
+        Row: {
+          answer: string
+          category: string | null
+          created_at: string
+          created_by: string | null
+          embedding: string | null
+          id: string
+          is_active: boolean
+          question: string
+          updated_at: string
+        }
+        Insert: {
+          answer: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          embedding?: string | null
+          id?: string
+          is_active?: boolean
+          question: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          embedding?: string | null
+          id?: string
+          is_active?: boolean
+          question?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_base_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "managers"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       managers: {
         Row: {
@@ -85,34 +188,165 @@ export type Database = {
       }
       messages: {
         Row: {
+          admin_uid: string | null
           created_at: string | null
+          error_message: string | null
           id: string
+          sender: Database["public"]["Enums"]["message_sender"]
+          sent_at: string | null
+          status: string | null
           telegram_chat_id: number
           text: string
         }
         Insert: {
+          admin_uid?: string | null
           created_at?: string | null
+          error_message?: string | null
           id?: string
+          sender?: Database["public"]["Enums"]["message_sender"]
+          sent_at?: string | null
+          status?: string | null
           telegram_chat_id: number
           text: string
         }
         Update: {
+          admin_uid?: string | null
           created_at?: string | null
+          error_message?: string | null
           id?: string
+          sender?: Database["public"]["Enums"]["message_sender"]
+          sent_at?: string | null
+          status?: string | null
           telegram_chat_id?: number
           text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_messages_admin_uid"
+            columns: ["admin_uid"]
+            isOneToOne: false
+            referencedRelation: "managers"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "fk_messages_client"
+            columns: ["telegram_chat_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["telegram_chat_id"]
+          },
+          {
+            foreignKeyName: "fk_messages_client"
+            columns: ["telegram_chat_id"]
+            isOneToOne: false
+            referencedRelation: "clients_with_last_message"
+            referencedColumns: ["telegram_chat_id"]
+          },
+        ]
+      }
+      tickets: {
+        Row: {
+          created_at: string
+          description: string | null
+          due_at: string | null
+          id: string
+          manager_id: string
+          priority: Database["public"]["Enums"]["ticket_priority"]
+          status: Database["public"]["Enums"]["ticket_status"]
+          telegram_chat_id: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          manager_id: string
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          status?: Database["public"]["Enums"]["ticket_status"]
+          telegram_chat_id?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          manager_id?: string
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          status?: Database["public"]["Enums"]["ticket_status"]
+          telegram_chat_id?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "managers"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tickets_telegram_chat_id_fkey"
+            columns: ["telegram_chat_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["telegram_chat_id"]
+          },
+          {
+            foreignKeyName: "tickets_telegram_chat_id_fkey"
+            columns: ["telegram_chat_id"]
+            isOneToOne: false
+            referencedRelation: "clients_with_last_message"
+            referencedColumns: ["telegram_chat_id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      clients_with_last_message: {
+        Row: {
+          first_seen_at: string | null
+          last_message_at: string | null
+          last_message_sender:
+            | Database["public"]["Enums"]["message_sender"]
+            | null
+          last_message_text: string | null
+          last_seen_at: string | null
+          notes: string | null
+          telegram_chat_id: number | null
+          username: string | null
         }
         Relationships: []
       }
     }
-    Views: {
-      [_ in never]: never
-    }
     Functions: {
-      [_ in never]: never
+      increment_ai_usage: {
+        Args: { p_date: string; p_tokens: number }
+        Returns: undefined
+      }
+      match_knowledge_base: {
+        Args: {
+          match_count: number
+          match_threshold: number
+          query_embedding: string
+        }
+        Returns: {
+          answer: string
+          category: string
+          id: string
+          question: string
+          similarity: number
+        }[]
+      }
     }
     Enums: {
-      [_ in never]: never
+      message_sender: "user" | "manager" | "bot"
+      ticket_priority: "low" | "normal" | "high"
+      ticket_status: "open" | "in_progress" | "closed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -238,7 +472,14 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  public: {
+  graphql_public: {
     Enums: {},
+  },
+  public: {
+    Enums: {
+      message_sender: ["user", "manager", "bot"],
+      ticket_priority: ["low", "normal", "high"],
+      ticket_status: ["open", "in_progress", "closed"],
+    },
   },
 } as const
