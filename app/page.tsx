@@ -7,6 +7,7 @@ import { formatDateLong } from '@/shared/lib/format-date'
 import { AppNav } from './AppNav'
 import DashboardChatsPreview from './DashboardChatsPreview'
 import Link from 'next/link'
+import type { Ticket } from '@/entities/ticket/model/types'
 
 export default async function DashboardPage() {
   const supabase = await getSupabaseServer()
@@ -123,7 +124,7 @@ export default async function DashboardPage() {
                 </div>
               ) : (
                 <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                  {tickets.map((t: any) => {
+                  {(tickets as Ticket[]).map((t) => {
                     const isOverdue = t.due_at && new Date(t.due_at) < new Date()
                     return (
                       <li key={t.id} className="px-4 py-3">
