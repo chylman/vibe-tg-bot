@@ -1,4 +1,4 @@
-import { getSupabaseServer } from '@/lib/supabaseServer'
+import { getSupabaseServer } from '@/shared/api/supabase-server'
 import { redirect } from 'next/navigation'
 import { AppNav } from '@/app/AppNav'
 import Chat from './Chat'

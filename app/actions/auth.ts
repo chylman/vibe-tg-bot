@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getSupabaseServer } from "@/shared/api/supabase-server";
 
 export async function signIn(prevState: any, formData: FormData) {
   const email = String(formData.get("email") || "").trim();

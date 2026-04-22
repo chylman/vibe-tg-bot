@@ -1,28 +1,12 @@
 export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
-import { getSupabaseServer } from '../lib/supabaseServer'
+import { getSupabaseServer } from '@/shared/api/supabase-server'
+import { STATUS_LABEL, STATUS_STYLE, PRIORITY_STYLE } from '@/shared/lib/constants'
+import { formatDateLong } from '@/shared/lib/format-date'
 import { AppNav } from './AppNav'
 import DashboardChatsPreview from './DashboardChatsPreview'
 import Link from 'next/link'
-
-const STATUS_LABEL: Record<string, string> = {
-  open: 'Открыт',
-  in_progress: 'В работе',
-  closed: 'Закрыт',
-}
-
-const STATUS_STYLE: Record<string, string> = {
-  open: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-  in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  closed: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
-}
-
-const PRIORITY_STYLE: Record<string, string> = {
-  low: 'bg-zinc-100 text-zinc-500',
-  normal: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  high: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-}
 
 export default async function DashboardPage() {
   const supabase = await getSupabaseServer()
@@ -66,11 +50,7 @@ export default async function DashboardPage() {
     .order('due_at', { ascending: true, nullsFirst: false })
     .limit(5)
 
-  const memberSince = manager?.created_at
-    ? new Date(manager.created_at).toLocaleDateString('ru-RU', {
-        day: '2-digit', month: 'long', year: 'numeric',
-      })
-    : null
+  const memberSince = manager?.created_at ? formatDateLong(manager.created_at) : null
 
   return (
     <div className="min-h-screen flex flex-col">

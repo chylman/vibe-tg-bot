@@ -1,47 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/shared/api/supabase-client'
+import { STATUS_LABEL, STATUS_STYLE, STATUS_NEXT, PRIORITY_LABEL, PRIORITY_STYLE } from '@/shared/lib/constants'
+import { formatDateTimeFull } from '@/shared/lib/format-date'
+import type { Database } from '@/shared/api/database.types'
 
 type Ticket = {
   id: string
   title: string
   description: string | null
   due_at: string | null
-  status: 'open' | 'in_progress' | 'closed'
-  priority: 'low' | 'normal' | 'high'
+  status: Database['public']['Enums']['ticket_status']
+  priority: Database['public']['Enums']['ticket_priority']
   telegram_chat_id: number | null
   created_at: string
-}
-
-const STATUS_LABEL: Record<Ticket['status'], string> = {
-  open: 'Открыт',
-  in_progress: 'В работе',
-  closed: 'Закрыт',
-}
-
-const STATUS_STYLE: Record<Ticket['status'], string> = {
-  open: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-  in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  closed: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
-}
-
-const PRIORITY_LABEL: Record<Ticket['priority'], string> = {
-  low: 'Низкий',
-  normal: 'Обычный',
-  high: 'Высокий',
-}
-
-const PRIORITY_STYLE: Record<Ticket['priority'], string> = {
-  low: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
-  normal: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  high: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-}
-
-const STATUS_NEXT: Record<Ticket['status'], Ticket['status']> = {
-  open: 'in_progress',
-  in_progress: 'closed',
-  closed: 'open',
 }
 
 const EMPTY_FORM = { title: '', description: '', due_at: '', priority: 'normal' as Ticket['priority'], telegram_chat_id: '' }
@@ -250,10 +223,7 @@ export default function TicketsClient({ adminId }: { adminId: string }) {
                       <span>
                         Срок:{' '}
                         <span suppressHydrationWarning className={new Date(t.due_at) < new Date() && t.status !== 'closed' ? 'text-red-500 font-medium' : ''}>
-                          {new Date(t.due_at).toLocaleString('ru-RU', {
-                            day: '2-digit', month: '2-digit', year: '2-digit',
-                            hour: '2-digit', minute: '2-digit',
-                          })}
+                          {formatDateTimeFull(t.due_at)}
                         </span>
                       </span>
                     )}

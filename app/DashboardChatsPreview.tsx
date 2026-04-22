@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { formatDateTime } from '@/shared/lib/format-date'
 
 type ChatRow = {
   telegram_chat_id: any
@@ -75,14 +76,7 @@ export default function DashboardChatsPreview({
           {chats.map((c) => {
             const id = String(c.telegram_chat_id)
             const unread = unreadCounts[id] ?? 0
-            const when = c.last_message_at
-              ? new Date(c.last_message_at).toLocaleString('ru-RU', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : ''
+            const when = c.last_message_at ? formatDateTime(c.last_message_at) : ''
             const preview = c.last_message_text
               ? (c.last_message_sender === 'manager' ? '↩ ' : '') + c.last_message_text
               : '—'

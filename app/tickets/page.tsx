@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getSupabaseServer } from '@/lib/supabaseServer'
+import { getSupabaseServer } from '@/shared/api/supabase-server'
 import { AppNav } from '../AppNav'
 import TicketsClient from './TicketsClient'
 

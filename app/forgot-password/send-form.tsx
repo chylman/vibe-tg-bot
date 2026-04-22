@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/shared/api/supabase-client'
 
 export default function ForgotForm() {
   const [state, setState] = useState<{ ok?: boolean; message: string }>({ message: '' })

@@ -1,6 +1,6 @@
 import LoginForm from './LoginForm'
 import Link from 'next/link'
-import { getSupabaseServer } from '@/lib/supabaseServer'
+import { getSupabaseServer } from '@/shared/api/supabase-server'
 import { redirect } from 'next/navigation'
 
 export default async function Page() {

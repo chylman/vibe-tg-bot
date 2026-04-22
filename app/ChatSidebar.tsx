@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { formatDateTime } from '@/shared/lib/format-date'
 
 type Chat = { telegram_chat_id: any; last_at: string }
 type Row  = { telegram_chat_id: any; created_at: string }
@@ -68,15 +69,7 @@ export default function ChatSidebar({
           const id = String(c.telegram_chat_id)
           const isActive = id === activeChatId
           const last = c.last_at ? new Date(c.last_at) : null
-          const when =
-            last && !isNaN(last.getTime())
-              ? last.toLocaleString('ru-RU', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : ''
+          const when = last && !isNaN(last.getTime()) ? formatDateTime(c.last_at) : ''
           const unread = unreadCounts[id] ?? 0
 
           return (

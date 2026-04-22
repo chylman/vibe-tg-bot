@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
-import { getSupabaseServer } from '@/lib/supabaseServer'
+import { getSupabaseServer } from '@/shared/api/supabase-server'
 import { AppNav } from '../AppNav'
 import Chat from '@/app/chat/[chatId]/Chat'
 import ChatSidebar from '../ChatSidebar'
