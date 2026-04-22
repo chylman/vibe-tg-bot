@@ -4,46 +4,17 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/shared/api/supabase-client'
 import { formatDateTime } from '@/shared/lib/format-date'
 import { CHAT_PAGE_SIZE } from '@/shared/lib/constants'
+import { useMessages } from '@/entities/message/api/use-messages'
+import { useChatSession } from '@/entities/chat/api/use-chat-session'
+import type { Msg } from '@/entities/message/model/types'
 
 const PAGE_SIZE = CHAT_PAGE_SIZE
 
-type Msg = {
-  id: string
-  text: string | null
-  created_at: string
-  sender: 'user' | 'manager' | 'bot'
-  telegram_chat_id?: string | number | null
-  // manager-message fields
-  admin_uid?: string | null
-  status?: string | null
-  sent_at?: string | null
-}
-
-type ChatSession = {
-  telegram_chat_id: number
-  manager_id: string
-  connected_at: string
-  managers?: { name: string } | null
-}
-
 export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; adminEmail: string; adminId: string }) {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string>('')
-  const [userMessages, setUserMessages] = useState<Msg[]>([])
-  const [adminMessages, setAdminMessages] = useState<Msg[]>([])
-  const [botMessages, setBotMessages] = useState<Msg[]>([])
   const [text, setText] = useState('')
-  const [session, setSession] = useState<ChatSession | null>(null)
-  const [sessionLoading, setSessionLoading] = useState(true)
-  const [sessionError, setSessionError] = useState<string>('')
-  const [sessionWorking, setSessionWorking] = useState(false) // connect/disconnect in progress
-  const [wasForceDisconnected, setWasForceDisconnected] = useState(false)
-  const [hasMore, setHasMore] = useState(false)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const topRef = useRef<HTMLDivElement>(null)
-  const oldestAtRef = useRef<string | null>(null)
   const pendingScrollRestore = useRef<number | null>(null)
 
   // IDs of user messages that existed when the chat first loaded.
@@ -69,17 +40,24 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     return Number.isFinite(n) ? n : chatIdStr
   }, [chatIdStr])
 
+  const {
+    userMessages, adminMessages, botMessages, setAdminMessages,
+    loading, error, setError,
+    hasMore, isLoadingMore, loadMore,
+  } = useMessages(chatIdStr, chatIdNum)
+
+  const {
+    session, sessionLoading, sessionError, sessionWorking, wasForceDisconnected,
+    setWasForceDisconnected, connect, disconnect, forceDisconnect,
+  } = useChatSession(chatIdStr, chatIdNum, adminId)
+
   const isMySession = session?.manager_id === adminId
 
-  // Reset all per-chat state whenever the chat changes
+  // Reset all per-chat UI state whenever the chat changes
   useEffect(() => {
     loadedMsgIds.current = new Set()
     setFirstNewMsgId(null)
     setDividerVisible(false)
-    setWasForceDisconnected(false)
-    setHasMore(false)
-    setIsLoadingMore(false)
-    oldestAtRef.current = null
     pendingScrollRestore.current = null
     if (dividerTimerRef.current) clearTimeout(dividerTimerRef.current)
   }, [chatIdStr])
@@ -96,7 +74,6 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
   // When new user messages arrive after the initial load: show divider
   useEffect(() => {
     if (loading || loadedMsgIds.current.size === 0) return
-    // Find the first user message not present at load time
     const firstNew = userMessages.find(m => !loadedMsgIds.current.has(String(m.id)))
     if (firstNew) {
       if (firstNewMsgId === null) {
@@ -108,30 +85,6 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
       markAsRead(merged)
     }
   }, [userMessages.length])
-
-  async function loadMore() {
-    if (!hasMore || isLoadingMore || chatIdNum == null || !oldestAtRef.current) return
-    setIsLoadingMore(true)
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('telegram_chat_id', chatIdNum as any)
-      .lt('created_at', oldestAtRef.current)
-      .order('created_at', { ascending: false })
-      .limit(PAGE_SIZE)
-    if (error || !data) { setIsLoadingMore(false); return }
-    const older = ([...data].reverse()) as Msg[]
-    if (older.length > 0) oldestAtRef.current = older[0].created_at
-    setHasMore(data.length === PAGE_SIZE)
-    // Snapshot scroll height before prepend so we can restore position
-    pendingScrollRestore.current = listRef.current?.scrollHeight ?? null
-    // Mark prepended IDs as already-seen so they don't trigger the new-messages divider
-    older.filter(m => m.sender === 'user').forEach(m => loadedMsgIds.current.add(String(m.id)))
-    setUserMessages(prev => [...older.filter(m => m.sender === 'user'), ...prev])
-    setAdminMessages(prev => [...older.filter(m => m.sender === 'manager'), ...prev])
-    setBotMessages(prev => [...older.filter(m => m.sender === 'bot'), ...prev])
-    setIsLoadingMore(false)
-  }
 
   // After prepend: restore scroll position so the view doesn't jump to the top
   useLayoutEffect(() => {
@@ -147,195 +100,28 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     const container = listRef.current
     if (!el || !container || !hasMore || isLoadingMore) return
     const observer = new IntersectionObserver(
-      (entries) => { if (entries[0].isIntersecting) loadMore() },
+      (entries) => { if (entries[0].isIntersecting) handleLoadMore() },
       { root: container, threshold: 0.1 }
     )
     observer.observe(el)
     return () => observer.disconnect()
   }, [hasMore, isLoadingMore, chatIdStr])
 
+  function handleLoadMore() {
+    loadMore({
+      onBeforePrepend: (older) => {
+        // Snapshot scroll height before prepend so we can restore position
+        pendingScrollRestore.current = listRef.current?.scrollHeight ?? null
+        // Mark prepended IDs as already-seen so they don't trigger the new-messages divider
+        older.filter(m => m.sender === 'user').forEach(m => loadedMsgIds.current.add(String(m.id)))
+      },
+    })
+  }
+
   function markAsRead(currentMerged: typeof merged) {
     if (!chatIdStr || currentMerged.length === 0) return
     localStorage.setItem('lastRead_' + chatIdStr, currentMerged[currentMerged.length - 1].at)
     window.dispatchEvent(new CustomEvent('chat-marked-read'))
-  }
-
-  useEffect(() => {
-    let active = true
-
-    async function load() {
-      setLoading(true)
-      setSessionLoading(true)
-      setError('')
-      setSessionError('')
-      try {
-        if (chatIdStr == null || chatIdNum == null) {
-          throw new Error('Некорректный идентификатор чата')
-        }
-        const [mRes, sRes] = await Promise.all([
-          supabase
-            .from('messages')
-            .select('*')
-            .eq('telegram_chat_id', chatIdNum as any)
-            .order('created_at', { ascending: false })
-            .limit(PAGE_SIZE),
-          supabase
-            .from('chat_sessions')
-            .select('*, managers(name)')
-            .eq('telegram_chat_id', chatIdNum as any)
-            .maybeSingle(),
-        ])
-        if (!active) return
-        if (mRes.error) throw mRes.error
-        const all = ([...(mRes.data || [])].reverse()) as Msg[]
-        oldestAtRef.current = all.length > 0 ? all[0].created_at : null
-        setHasMore(mRes.data!.length === PAGE_SIZE)
-        setUserMessages(all.filter(m => m.sender === 'user'))
-        setAdminMessages(all.filter(m => m.sender === 'manager'))
-        setBotMessages(all.filter(m => m.sender === 'bot'))
-        setSession((sRes.data as ChatSession) ?? null)
-      } catch (e: any) {
-        setError(e?.message || 'Не удалось загрузить чат')
-      } finally {
-        if (active) {
-          setLoading(false)
-          setSessionLoading(false)
-        }
-      }
-    }
-    load()
-
-    const channelName = 'chat-' + (chatIdStr ?? 'invalid')
-    const channel = supabase.channel(channelName)
-    if (chatIdStr != null) {
-      channel
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'messages', filter: `telegram_chat_id=eq.${chatIdStr}` },
-          (payload) => {
-            const msg = payload.new as Msg
-            if (msg.sender === 'manager') {
-              setAdminMessages((prev) => {
-                // Replace optimistic entry if present, otherwise append
-                const withoutOptimistic = prev.filter((m) => !m.id.startsWith('temp-'))
-                return [...withoutOptimistic, msg]
-              })
-            } else if (msg.sender === 'bot') {
-              setBotMessages((prev) => [...prev, msg])
-            } else {
-              setUserMessages((prev) => [...prev, msg])
-            }
-            setTimeout(() => scrollToBottom('smooth'), 50)
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'messages', filter: `telegram_chat_id=eq.${chatIdStr}` },
-          (payload) => {
-            const msg = payload.new as Msg
-            if (msg.sender === 'manager') {
-              setAdminMessages((prev) => prev.map((m) => (m.id === msg.id ? msg : m)))
-            }
-          }
-        )
-        // chat_sessions: no filter needed — the table rows are identified by telegram_chat_id (PK)
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'chat_sessions', filter: `telegram_chat_id=eq.${chatIdStr}` },
-          (payload) => { setSession(payload.new as ChatSession) }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'DELETE', schema: 'public', table: 'chat_sessions', filter: `telegram_chat_id=eq.${chatIdStr}` },
-          () => {
-            setSession((prev) => {
-              if (prev?.manager_id === adminId) {
-                setWasForceDisconnected(true)
-              }
-              return null
-            })
-          }
-        )
-        .subscribe()
-    }
-
-    return () => {
-      active = false
-      supabase.removeChannel(channel)
-    }
-  }, [chatIdStr, chatIdNum])
-
-  async function connect() {
-    if (chatIdNum == null) return
-    setSessionWorking(true)
-    setSessionError('')
-    const { error } = await supabase.from('chat_sessions').insert({
-      telegram_chat_id: chatIdNum as number,
-      manager_id: adminId,
-    })
-    if (error) {
-      setSessionWorking(false)
-      // Unique constraint violation means another manager connected first
-      if (error.code === '23505') {
-        setSessionError('Другой менеджер уже подключился к этому чату.')
-      } else {
-        setSessionError(error.message)
-      }
-      return
-    }
-    // Optimistically update UI without waiting for realtime
-    setSession({ telegram_chat_id: chatIdNum as number, manager_id: adminId, connected_at: new Date().toISOString() })
-    setSessionWorking(false)
-    // Notify the Telegram user
-    await supabase.functions.invoke('notify-manager-connected', {
-      body: { telegram_chat_id: chatIdNum },
-    })
-  }
-
-  async function disconnect() {
-    if (chatIdNum == null) return
-    setSessionWorking(true)
-    setSessionError('')
-
-    // Notify the user before removing the session
-    await supabase.functions.invoke('notify-manager-disconnected', {
-      body: { telegram_chat_id: chatIdNum },
-    })
-
-    const { error } = await supabase
-      .from('chat_sessions')
-      .delete()
-      .eq('telegram_chat_id', chatIdNum as number)
-    if (error) {
-      setSessionWorking(false)
-      setSessionError(error.message)
-      return
-    }
-    // Optimistically update UI without waiting for realtime
-    setSession(null)
-    setSessionWorking(false)
-  }
-
-  async function forceDisconnect() {
-    if (chatIdNum == null) return
-    setSessionWorking(true)
-    setSessionError('')
-
-    await supabase.functions.invoke('notify-manager-disconnected', {
-      body: { telegram_chat_id: chatIdNum },
-    })
-
-    const { error } = await supabase
-      .from('chat_sessions')
-      .delete()
-      .eq('telegram_chat_id', chatIdNum as number)
-    if (error) {
-      setSessionWorking(false)
-      setSessionError(error.message)
-      return
-    }
-    setSession(null)
-    setSessionWorking(false)
   }
 
   const merged = useMemo(() => {

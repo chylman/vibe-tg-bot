@@ -3,23 +3,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { formatDateTime } from '@/shared/lib/format-date'
-
-type ChatRow = {
-  telegram_chat_id: any
-  username: string | null
-  last_message_text: string | null
-  last_message_sender: string | null
-  last_message_at: string | null
-}
-
-type MsgRow = { telegram_chat_id: any; created_at: string }
+import type { ChatPreviewRow, MessageRow } from '@/entities/chat/model/types'
 
 export default function DashboardChatsPreview({
   chats,
   allRows,
 }: {
-  chats: ChatRow[]
-  allRows: MsgRow[]
+  chats: ChatPreviewRow[]
+  allRows: MessageRow[]
 }) {
   const [lastReadMap, setLastReadMap] = useState<Record<string, string>>({})
 

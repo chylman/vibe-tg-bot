@@ -2,9 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { formatDateTime } from '@/shared/lib/format-date'
-
-type Chat = { telegram_chat_id: any; last_at: string }
-type Row  = { telegram_chat_id: any; created_at: string }
+import type { ChatItem, MessageRow } from '@/entities/chat/model/types'
 
 export default function ChatSidebar({
   chats,
@@ -13,8 +11,8 @@ export default function ChatSidebar({
   chatsError,
   linkBase = '/chats',
 }: {
-  chats: Chat[]
-  allRows: Row[]
+  chats: ChatItem[]
+  allRows: MessageRow[]
   activeChatId?: string
   chatsError?: string | null
   linkBase?: string

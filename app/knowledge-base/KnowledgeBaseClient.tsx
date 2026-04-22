@@ -1,42 +1,20 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/shared/api/supabase-client'
-
-type Entry = {
-  id: string
-  question: string
-  answer: string
-  category: string | null
-  is_active: boolean
-  created_at: string
-  created_by: string | null
-}
+import { useKnowledgeBase } from '@/entities/knowledge-entry/api/use-knowledge-base'
+import type { KnowledgeEntry } from '@/entities/knowledge-entry/model/types'
 
 const EMPTY_FORM = { question: '', answer: '', category: '' }
 
 export default function KnowledgeBaseClient({ adminId }: { adminId: string }) {
-  const [entries, setEntries]   = useState<Entry[]>([])
-  const [loading, setLoading]   = useState(true)
+  const { entries, setEntries, loading, error: loadError, reload } = useKnowledgeBase()
   const [showForm, setShowForm] = useState(false)
-  const [editEntry, setEditEntry] = useState<Entry | null>(null)
+  const [editEntry, setEditEntry] = useState<KnowledgeEntry | null>(null)
   const [form, setForm]         = useState(EMPTY_FORM)
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all')
-
-  async function load() {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('knowledge_base')
-      .select('id, question, answer, category, is_active, created_at, created_by')
-      .order('created_at', { ascending: false })
-    if (error) setError(error.message)
-    else setEntries((data ?? []) as Entry[])
-    setLoading(false)
-  }
-
-  useEffect(() => { load() }, [])
 
   function openCreate() {
     setEditEntry(null)
@@ -45,7 +23,7 @@ export default function KnowledgeBaseClient({ adminId }: { adminId: string }) {
     setError('')
   }
 
-  function openEdit(e: Entry) {
+  function openEdit(e: KnowledgeEntry) {
     setEditEntry(e)
     setForm({ question: e.question, answer: e.answer, category: e.category ?? '' })
     setShowForm(true)
@@ -106,11 +84,11 @@ export default function KnowledgeBaseClient({ adminId }: { adminId: string }) {
     setShowForm(false)
     setEditEntry(null)
     setForm(EMPTY_FORM)
-    await load()
+    await reload()
     setSaving(false)
   }
 
-  async function toggleActive(entry: Entry) {
+  async function toggleActive(entry: KnowledgeEntry) {
     const { error } = await supabase
       .from('knowledge_base')
       .update({ is_active: !entry.is_active })
@@ -218,8 +196,8 @@ export default function KnowledgeBaseClient({ adminId }: { adminId: string }) {
         </form>
       )}
 
-      {error && !showForm && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+      {(loadError || error) && !showForm && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{loadError || error}</div>
       )}
 
       {/* List */}

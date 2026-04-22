@@ -1,45 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/shared/api/supabase-client'
 import { STATUS_LABEL, STATUS_STYLE, STATUS_NEXT, PRIORITY_LABEL, PRIORITY_STYLE } from '@/shared/lib/constants'
 import { formatDateTimeFull } from '@/shared/lib/format-date'
-import type { Database } from '@/shared/api/database.types'
-
-type Ticket = {
-  id: string
-  title: string
-  description: string | null
-  due_at: string | null
-  status: Database['public']['Enums']['ticket_status']
-  priority: Database['public']['Enums']['ticket_priority']
-  telegram_chat_id: number | null
-  created_at: string
-}
+import { useTickets } from '@/entities/ticket/api/use-tickets'
+import type { Ticket } from '@/entities/ticket/model/types'
 
 const EMPTY_FORM = { title: '', description: '', due_at: '', priority: 'normal' as Ticket['priority'], telegram_chat_id: '' }
 
 export default function TicketsClient({ adminId }: { adminId: string }) {
-  const [tickets, setTickets]   = useState<Ticket[]>([])
-  const [loading, setLoading]   = useState(true)
+  const { tickets, setTickets, loading, error: loadError, reload } = useTickets()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm]         = useState(EMPTY_FORM)
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState('')
   const [filter, setFilter]     = useState<'all' | Ticket['status']>('all')
-
-  async function load() {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('tickets')
-      .select('id, title, description, due_at, status, priority, telegram_chat_id, created_at')
-      .order('due_at', { ascending: true, nullsFirst: false })
-    if (error) setError(error.message)
-    else setTickets((data ?? []) as Ticket[])
-    setLoading(false)
-  }
-
-  useEffect(() => { load() }, [])
 
   async function createTicket(e: React.FormEvent) {
     e.preventDefault()
@@ -62,7 +38,7 @@ export default function TicketsClient({ adminId }: { adminId: string }) {
     } else {
       setForm(EMPTY_FORM)
       setShowForm(false)
-      await load()
+      await reload()
     }
     setSaving(false)
   }
@@ -186,8 +162,8 @@ export default function TicketsClient({ adminId }: { adminId: string }) {
       )}
 
       {/* Error */}
-      {error && !showForm && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+      {(loadError || error) && !showForm && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{loadError || error}</div>
       )}
 
       {/* Ticket list */}
