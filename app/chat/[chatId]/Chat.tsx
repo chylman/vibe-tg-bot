@@ -10,7 +10,6 @@ type Msg = {
   text: string | null
   created_at: string
   sender: 'user' | 'manager' | 'bot'
-  username?: string | null
   telegram_chat_id?: string | number | null
   // manager-message fields
   admin_uid?: string | null
@@ -344,7 +343,6 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
       id: `u-${m.id}`,
       text: m.text || '',
       at: m.created_at,
-      meta: { username: m.username },
     }))
     const a: Item[] = adminMessages.map((m) => ({
       kind: 'admin',

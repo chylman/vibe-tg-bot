@@ -89,21 +89,18 @@ export type Database = {
           id: string
           telegram_chat_id: number
           text: string
-          username: string
         }
         Insert: {
           created_at?: string | null
           id?: string
           telegram_chat_id: number
           text: string
-          username: string
         }
         Update: {
           created_at?: string | null
           id?: string
           telegram_chat_id?: number
           text?: string
-          username?: string
         }
         Relationships: []
       }
