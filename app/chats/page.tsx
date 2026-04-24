@@ -1,10 +1,12 @@
 export const dynamic = 'force-dynamic'
 
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { getSupabaseServer } from '@/shared/api/supabase-server'
 import { AppNav } from '@/widgets/app-nav/ui/AppNav'
 import Chat from '@/app/chat/[chatId]/Chat'
 import ChatSidebar from '@/widgets/chat-sidebar/ui/ChatSidebar'
+import { ChatSkeleton } from '@/widgets/chat-sidebar/ui/ChatSkeleton'
 
 export default async function ChatsPage({
   searchParams,
@@ -61,7 +63,9 @@ export default async function ChatsPage({
           )}
           {activeChatId && (
             <div className="h-full">
-              <Chat chatId={activeChatId} adminEmail={user.email ?? ''} adminId={user.id} />
+              <Suspense fallback={<ChatSkeleton />}>
+                <Chat chatId={activeChatId} adminEmail={user.email ?? ''} adminId={user.id} />
+              </Suspense>
             </div>
           )}
         </section>
