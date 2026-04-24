@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/shared/api/supabase-client'
 import type { BotSettings } from '../model/types'
 
-export function useBotSettings() {
-  const [settings, setSettings] = useState<BotSettings | null>(null)
-  const [loading, setLoading] = useState(true)
+export function useBotSettings(initialSettings?: BotSettings | null) {
+  const [settings, setSettings] = useState<BotSettings | null>(initialSettings ?? null)
+  const [loading, setLoading] = useState(!initialSettings)
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (initialSettings) return
     supabase
       .from('bot_settings')
       .select('*')

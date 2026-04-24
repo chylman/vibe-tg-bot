@@ -3,9 +3,10 @@
 import { useBotSettings } from '@/entities/bot-settings/api/use-bot-settings'
 import { BotSettingsForm } from '@/features/update-bot-settings/ui/BotSettingsForm'
 import { formatDateTime } from '@/shared/lib/format-date'
+import type { BotSettings } from '@/entities/bot-settings/model/types'
 
-export function BotSettingsPanel({ adminId }: { adminId: string }) {
-  const { settings, loading, error, save } = useBotSettings()
+export function BotSettingsPanel({ adminId, initialSettings }: { adminId: string; initialSettings?: BotSettings | null }) {
+  const { settings, loading, error, save } = useBotSettings(initialSettings)
 
   if (loading) {
     return <div className="py-12 text-center text-sm text-zinc-500">Загрузка настроек…</div>

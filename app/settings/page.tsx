@@ -4,11 +4,18 @@ import { redirect } from 'next/navigation'
 import { getSupabaseServer } from '@/shared/api/supabase-server'
 import { AppNav } from '@/widgets/app-nav/ui/AppNav'
 import { BotSettingsPanel } from '@/widgets/bot-settings/ui/BotSettingsPanel'
+import type { BotSettings } from '@/entities/bot-settings/model/types'
 
 export default async function SettingsPage() {
   const supabase = await getSupabaseServer()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  const { data } = await supabase
+    .from('bot_settings')
+    .select('*')
+    .eq('id', 1)
+    .single()
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -20,7 +27,7 @@ export default async function SettingsPage() {
             Параметры AI-модели, системный промт и лимиты автоответа.
           </p>
         </div>
-        <BotSettingsPanel adminId={user.id} />
+        <BotSettingsPanel adminId={user.id} initialSettings={data as BotSettings | null} />
       </main>
     </div>
   )
