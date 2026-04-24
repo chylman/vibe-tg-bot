@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
 import { formatDateTime } from '@/shared/lib/format-date'
 import type { ChatItem, MessageRow } from '@/entities/chat/model/types'
+import { useUnreadCounts } from '@/features/track-unread/api/use-unread-counts'
 
 export default function ChatSidebar({
   chats,
@@ -17,37 +17,8 @@ export default function ChatSidebar({
   chatsError?: string | null
   linkBase?: string
 }) {
-  const [lastReadMap, setLastReadMap] = useState<Record<string, string>>({})
-
-  function syncFromStorage() {
-    const map: Record<string, string> = {}
-    for (const chat of chats) {
-      const id = String(chat.telegram_chat_id)
-      const val = localStorage.getItem('lastRead_' + id)
-      if (val) map[id] = val
-    }
-    setLastReadMap(map)
-  }
-
-  useEffect(() => {
-    syncFromStorage()
-    // Chat component fires this event when it marks a chat as read
-    window.addEventListener('chat-marked-read', syncFromStorage)
-    return () => window.removeEventListener('chat-marked-read', syncFromStorage)
-  }, [])
-
-  // Count rows newer than lastRead per chat
-  const unreadCounts = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const row of allRows) {
-      const id = String(row.telegram_chat_id)
-      const lastRead = lastReadMap[id]
-      if (lastRead && row.created_at > lastRead) {
-        counts[id] = (counts[id] ?? 0) + 1
-      }
-    }
-    return counts
-  }, [allRows, lastReadMap])
+  const chatIds = chats.map((c) => String(c.telegram_chat_id))
+  const { unreadCounts } = useUnreadCounts(chatIds, allRows)
 
   return (
     <aside className="w-72 shrink-0 border-r border-zinc-200 dark:border-zinc-800 p-3 overflow-y-auto">
