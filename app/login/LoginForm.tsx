@@ -1,13 +1,13 @@
 'use client'
 
-import { useFormState } from 'react-dom'
+import { useActionState } from 'react'
 import { signIn } from '@/app/actions/auth'
 import Link from 'next/link'
 
 const initialState = { ok: undefined as undefined | boolean, message: '' }
 
 export default function LoginForm() {
-  const [state, action] = useFormState(signIn as any, initialState)
+  const [state, action] = useActionState(signIn as any, initialState)
 
   return (
     <form action={action} className="space-y-4">
