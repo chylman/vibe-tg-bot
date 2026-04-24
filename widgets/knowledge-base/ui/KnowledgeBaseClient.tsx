@@ -12,6 +12,8 @@ export default function KnowledgeBaseClient({ adminId, initialEntries }: { admin
   const [editEntry, setEditEntry] = useState<KnowledgeEntry | null>(null)
   const [error, setError] = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all')
+  const [reembedding, setReembedding] = useState(false)
+  const [reembedMsg, setReembedMsg] = useState('')
 
   function openCreate() {
     setEditEntry(null)
@@ -42,6 +44,24 @@ export default function KnowledgeBaseClient({ adminId, initialEntries }: { admin
       .eq('id', entry.id)
     if (error) setError(error.message)
     else setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, is_active: !e.is_active } : e))
+  }
+
+  async function reembedAll() {
+    setReembedding(true)
+    setReembedMsg('')
+    setError('')
+    const { data: allEntries } = await supabase
+      .from('knowledge_base')
+      .select('id')
+    if (!allEntries) { setReembedding(false); return }
+    let ok = 0
+    let fail = 0
+    for (const entry of allEntries) {
+      const { error } = await supabase.functions.invoke('generate-embedding', { body: { id: entry.id } })
+      if (error) { fail++ } else { ok++ }
+    }
+    setReembedMsg(`Готово: ${ok} обновлено${fail > 0 ? `, ${fail} ошибок` : ''}`)
+    setReembedding(false)
   }
 
   async function deleteEntry(id: string) {
@@ -76,12 +96,25 @@ export default function KnowledgeBaseClient({ adminId, initialEntries }: { admin
           ))}
           <span className="text-xs text-zinc-400 ml-1">{visible.length} записей</span>
         </div>
-        <button
-          onClick={openCreate}
-          className="rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-4 py-1.5 text-sm font-medium hover:opacity-80 transition-opacity"
-        >
-          + Добавить запись
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={reembedAll}
+            disabled={reembedding}
+            className="rounded-md border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors"
+            title="Перегенерировать эмбеддинги для всех записей"
+          >
+            {reembedding ? 'Векторизация…' : '↻ Перевекторизировать'}
+          </button>
+          {reembedMsg && (
+            <span className="text-xs text-emerald-600 dark:text-emerald-400">{reembedMsg}</span>
+          )}
+          <button
+            onClick={openCreate}
+            className="rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-4 py-1.5 text-sm font-medium hover:opacity-80 transition-opacity"
+          >
+            + Добавить запись
+          </button>
+        </div>
       </div>
 
       {showForm && (
