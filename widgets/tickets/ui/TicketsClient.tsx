@@ -8,8 +8,8 @@ import { useTickets } from '@/entities/ticket/api/use-tickets'
 import type { Ticket } from '@/entities/ticket/model/types'
 import { CreateTicketForm } from '@/features/create-ticket/ui/CreateTicketForm'
 
-export default function TicketsClient({ adminId }: { adminId: string }) {
-  const { tickets, setTickets, loading, error: loadError, reload } = useTickets()
+export default function TicketsClient({ adminId, initialTickets }: { adminId: string; initialTickets?: Ticket[] }) {
+  const { tickets, setTickets, loading, error: loadError, reload } = useTickets(initialTickets)
   const [showForm, setShowForm] = useState(false)
   const [error, setError]       = useState('')
   const [filter, setFilter]     = useState<'all' | Ticket['status']>('all')

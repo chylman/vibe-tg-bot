@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/shared/api/supabase-client'
 import type { Ticket } from '../model/types'
 
-export function useTickets() {
-  const [tickets, setTickets] = useState<Ticket[]>([])
-  const [loading, setLoading] = useState(true)
+export function useTickets(initialTickets?: Ticket[]) {
+  const [tickets, setTickets] = useState<Ticket[]>(initialTickets ?? [])
+  const [loading, setLoading] = useState(!initialTickets)
   const [error, setError]     = useState('')
 
   async function load() {
@@ -21,7 +21,7 @@ export function useTickets() {
   }
 
   useEffect(() => {
-    load()
+    if (!initialTickets) load()
 
     const channel = supabase
       .channel('tickets-realtime')
