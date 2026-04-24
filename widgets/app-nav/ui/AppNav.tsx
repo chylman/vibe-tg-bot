@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { signOut } from './actions/auth'
+import { signOut } from '@/app/actions/auth'
 
 const NAV_LINKS = [
   { href: '/',                label: 'Главная'      },

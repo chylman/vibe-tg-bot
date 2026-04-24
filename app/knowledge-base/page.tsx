@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSupabaseServer } from '@/shared/api/supabase-server'
-import { AppNav } from '../AppNav'
-import KnowledgeBaseClient from './KnowledgeBaseClient'
+import { AppNav } from '@/widgets/app-nav/ui/AppNav'
+import KnowledgeBaseClient from '@/widgets/knowledge-base/ui/KnowledgeBaseClient'
 
 export const dynamic = 'force-dynamic'
 

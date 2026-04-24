@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
 import { getSupabaseServer } from '@/shared/api/supabase-server'
-import { AppNav } from '../AppNav'
+import { AppNav } from '@/widgets/app-nav/ui/AppNav'
 import Chat from '@/app/chat/[chatId]/Chat'
-import ChatSidebar from '../ChatSidebar'
+import ChatSidebar from '@/widgets/chat-sidebar/ui/ChatSidebar'
 
 export default async function ChatsPage({
   searchParams,

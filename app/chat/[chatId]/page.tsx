@@ -1,6 +1,6 @@
 import { getSupabaseServer } from '@/shared/api/supabase-server'
 import { redirect } from 'next/navigation'
-import { AppNav } from '@/app/AppNav'
+import { AppNav } from '@/widgets/app-nav/ui/AppNav'
 import Chat from './Chat'
 
 export default async function ChatPage({ params }: { params: Promise<{ chatId: string }> }) {
