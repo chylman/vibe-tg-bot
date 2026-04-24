@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/shared/api/supabase-client'
 import type { KnowledgeEntry } from '../model/types'
 
-export function useKnowledgeBase() {
-  const [entries, setEntries] = useState<KnowledgeEntry[]>([])
-  const [loading, setLoading] = useState(true)
+export function useKnowledgeBase(initialEntries?: KnowledgeEntry[]) {
+  const [entries, setEntries] = useState<KnowledgeEntry[]>(initialEntries ?? [])
+  const [loading, setLoading] = useState(!initialEntries)
   const [error, setError]     = useState('')
 
   async function load() {
@@ -20,7 +20,7 @@ export function useKnowledgeBase() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { if (!initialEntries) load() }, [])
 
   return { entries, setEntries, loading, error, reload: load }
 }

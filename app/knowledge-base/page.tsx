@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getSupabaseServer } from '@/shared/api/supabase-server'
 import { AppNav } from '@/widgets/app-nav/ui/AppNav'
 import KnowledgeBaseClient from '@/widgets/knowledge-base/ui/KnowledgeBaseClient'
+import type { KnowledgeEntry } from '@/entities/knowledge-entry/model/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +10,11 @@ export default async function KnowledgeBasePage() {
   const supabase = await getSupabaseServer()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  const { data } = await supabase
+    .from('knowledge_base')
+    .select('id, question, answer, category, is_active, created_at, created_by')
+    .order('created_at', { ascending: false })
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -20,7 +26,7 @@ export default async function KnowledgeBasePage() {
             Ответы на типичные вопросы. Бот использует их при автоответе через векторный поиск.
           </p>
         </div>
-        <KnowledgeBaseClient adminId={user.id} />
+        <KnowledgeBaseClient adminId={user.id} initialEntries={(data ?? []) as KnowledgeEntry[]} />
       </main>
     </div>
   )

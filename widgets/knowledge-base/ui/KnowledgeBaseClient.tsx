@@ -6,8 +6,8 @@ import { useKnowledgeBase } from '@/entities/knowledge-entry/api/use-knowledge-b
 import type { KnowledgeEntry } from '@/entities/knowledge-entry/model/types'
 import { KnowledgeEntryForm } from '@/features/manage-knowledge-entry/ui/KnowledgeEntryForm'
 
-export default function KnowledgeBaseClient({ adminId }: { adminId: string }) {
-  const { entries, setEntries, loading, error: loadError, reload } = useKnowledgeBase()
+export default function KnowledgeBaseClient({ adminId, initialEntries }: { adminId: string; initialEntries?: KnowledgeEntry[] }) {
+  const { entries, setEntries, loading, error: loadError, reload } = useKnowledgeBase(initialEntries)
   const [showForm, setShowForm] = useState(false)
   const [editEntry, setEditEntry] = useState<KnowledgeEntry | null>(null)
   const [error, setError] = useState('')
