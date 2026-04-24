@@ -6,6 +6,7 @@ const NAV_LINKS = [
   { href: '/chats',           label: 'Чаты'         },
   { href: '/tickets',         label: 'Тикеты'       },
   { href: '/knowledge-base',  label: 'База знаний'  },
+  { href: '/settings',        label: 'Настройки'    },
 ]
 
 export function AppNav({ email, active }: { email: string; active: string }) {
