@@ -17,9 +17,10 @@ export function BotSettingsForm({ initial, onSave }: Props) {
     temperature:   initial.temperature,
     daily_limit:   initial.daily_limit,
     history_count: initial.history_count,
-    kb_top_k:      initial.kb_top_k,
-    similarity_thr: initial.similarity_thr,
-    fallback_msg:  initial.fallback_msg,
+    kb_top_k:            initial.kb_top_k,
+    similarity_thr:      initial.similarity_thr,
+    similarity_exact_thr: initial.similarity_exact_thr,
+    fallback_msg:        initial.fallback_msg,
   })
   const [saving, setSaving] = useState(false)
   const [saved,  setSaved]  = useState(false)
@@ -122,7 +123,7 @@ export function BotSettingsForm({ initial, onSave }: Props) {
       {/* ── Контекст и история ── */}
       <section className="space-y-4">
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Контекст и история</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
           <div className="space-y-1">
             <label className="block text-xs text-zinc-500">Сообщений истории</label>
@@ -148,7 +149,7 @@ export function BotSettingsForm({ initial, onSave }: Props) {
 
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-zinc-500">
-              <label>Порог схожести KB</label>
+              <label>Порог схожести KB (контекст)</label>
               <span className="font-mono">{form.similarity_thr.toFixed(2)}</span>
             </div>
             <input
@@ -157,7 +158,21 @@ export function BotSettingsForm({ initial, onSave }: Props) {
               onChange={e => set('similarity_thr', parseFloat(e.target.value))}
               className="w-full accent-zinc-900 dark:accent-zinc-100"
             />
-            <p className="text-[10px] text-zinc-400">Минимальная косинусная близость для включения записи</p>
+            <p className="text-[10px] text-zinc-400">Минимальная схожесть для передачи записи в контекст AI</p>
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-zinc-500">
+              <label>Порог точного ответа KB</label>
+              <span className="font-mono">{form.similarity_exact_thr.toFixed(2)}</span>
+            </div>
+            <input
+              type="range" min={0} max={1} step={0.05}
+              value={form.similarity_exact_thr}
+              onChange={e => set('similarity_exact_thr', parseFloat(e.target.value))}
+              className="w-full accent-zinc-900 dark:accent-zinc-100"
+            />
+            <p className="text-[10px] text-zinc-400">При такой схожести ответ из KB отправляется напрямую, без AI</p>
           </div>
         </div>
       </section>

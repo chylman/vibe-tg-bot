@@ -8,6 +8,7 @@ export type BotSettings = {
   history_count: number
   kb_top_k: number
   similarity_thr: number
+  similarity_exact_thr: number
   fallback_msg: string
   updated_at: string
   updated_by: string | null
