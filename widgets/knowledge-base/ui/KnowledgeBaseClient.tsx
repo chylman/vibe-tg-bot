@@ -50,17 +50,13 @@ export default function KnowledgeBaseClient({ adminId, initialEntries }: { admin
     setReembedding(true)
     setReembedMsg('')
     setError('')
-    const { data: allEntries } = await supabase
-      .from('knowledge_base')
-      .select('id')
-    if (!allEntries) { setReembedding(false); return }
-    let ok = 0
-    let fail = 0
-    for (const entry of allEntries) {
-      const { error } = await supabase.functions.invoke('generate-embedding', { body: { id: entry.id } })
-      if (error) { fail++ } else { ok++ }
+    const { data, error } = await supabase.functions.invoke('reembed-all', { body: {} })
+    if (error) {
+      setError(error.message)
+    } else {
+      const { ok, fail } = data as { ok: number; fail: number }
+      setReembedMsg(`Готово: ${ok} обновлено${fail > 0 ? `, ${fail} ошибок` : ''}`)
     }
-    setReembedMsg(`Готово: ${ok} обновлено${fail > 0 ? `, ${fail} ошибок` : ''}`)
     setReembedding(false)
   }
 
