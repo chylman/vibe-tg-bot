@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { OverlayScrollbarsComponent } from 'overlayscrollbars-react'
+import type { OverlayScrollbarsComponentRef } from 'overlayscrollbars-react'
 import { formatDateTime } from '@/shared/lib/format-date'
 import { useMessages } from '@/entities/message/api/use-messages'
 import { useChatSession } from '@/entities/chat/api/use-chat-session'
@@ -8,10 +10,12 @@ import { SessionBanner } from '@/features/manage-session/ui/SessionBanner'
 import { SendMessageForm } from '@/features/send-message/ui/SendMessageForm'
 
 export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; adminEmail: string; adminId: string }) {
-  const listRef = useRef<HTMLDivElement>(null)
+  const osRef = useRef<OverlayScrollbarsComponentRef>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const topRef = useRef<HTMLDivElement>(null)
   const pendingScrollRestore = useRef<number | null>(null)
+
+  const getViewport = () => osRef.current?.osInstance()?.elements().viewport ?? null
 
   // IDs of user messages that existed when the chat first loaded.
   // Any user message NOT in this set is "new" and triggers the divider.
@@ -84,8 +88,9 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
 
   // After prepend: restore scroll position so the view doesn't jump to the top
   useLayoutEffect(() => {
-    if (pendingScrollRestore.current !== null && listRef.current) {
-      listRef.current.scrollTop += listRef.current.scrollHeight - pendingScrollRestore.current
+    const vp = getViewport()
+    if (pendingScrollRestore.current !== null && vp) {
+      vp.scrollTop += vp.scrollHeight - pendingScrollRestore.current
       pendingScrollRestore.current = null
     }
   })
@@ -93,7 +98,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
   // IntersectionObserver: trigger loadMore when the top sentinel enters view
   useEffect(() => {
     const el = topRef.current
-    const container = listRef.current
+    const container = getViewport()
     if (!el || !container || !hasMore || isLoadingMore) return
     const observer = new IntersectionObserver(
       (entries) => { if (entries[0].isIntersecting) handleLoadMore() },
@@ -107,7 +112,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     loadMore({
       onBeforePrepend: (older) => {
         // Snapshot scroll height before prepend so we can restore position
-        pendingScrollRestore.current = listRef.current?.scrollHeight ?? null
+        pendingScrollRestore.current = getViewport()?.scrollHeight ?? null
         // Mark prepended IDs as already-seen so they don't trigger the new-messages divider
         older.filter(m => m.sender === 'user').forEach(m => loadedMsgIds.current.add(String(m.id)))
       },
@@ -161,7 +166,14 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
       />
 
       {/* Message list */}
-      <div ref={listRef} className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0" style={{ height: '0' }}>
+      <OverlayScrollbarsComponent
+        ref={osRef}
+        element="div"
+        className="flex-1 min-h-0"
+        style={{ height: '0' }}
+        options={{ scrollbars: { autoHide: 'scroll', autoHideDelay: 600 }, overflow: { x: 'hidden' } }}
+      >
+        <div className="p-4 space-y-3">
         <div ref={topRef} />
         {isLoadingMore && <div className="text-center text-xs text-zinc-400 py-1">Загрузка…</div>}
         {loading && <div className="text-sm text-zinc-500">Загрузка…</div>}
@@ -218,7 +230,8 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
           </div>
         ))}
         <div ref={bottomRef} />
-      </div>
+        </div>
+      </OverlayScrollbarsComponent>
 
       <SendMessageForm
         chatIdStr={chatIdStr}

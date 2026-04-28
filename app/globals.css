@@ -1,4 +1,25 @@
 @import "tailwindcss";
+@import "overlayscrollbars/overlayscrollbars.css";
+
+.os-scrollbar {
+  --os-size: 6px;
+  --os-padding-perpendicular: 2px;
+  --os-handle-border-radius: 3px;
+  --os-handle-bg: rgba(0, 0, 0, 0.18);
+  --os-handle-bg-hover: rgba(0, 0, 0, 0.32);
+  --os-handle-bg-active: rgba(0, 0, 0, 0.46);
+  --os-track-bg: transparent;
+  --os-track-bg-hover: transparent;
+  --os-track-bg-active: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  .os-scrollbar {
+    --os-handle-bg: rgba(255, 255, 255, 0.18);
+    --os-handle-bg-hover: rgba(255, 255, 255, 0.32);
+    --os-handle-bg-active: rgba(255, 255, 255, 0.46);
+  }
+}
 
 :root {
   --background: #ffffff;
