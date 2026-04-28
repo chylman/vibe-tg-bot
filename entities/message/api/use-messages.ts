@@ -81,7 +81,7 @@ export function useMessages(chatIdStr: string | null, chatIdNum: number | string
         (payload) => {
           const msg = payload.new as Msg
           if (msg.sender === 'manager') {
-            setAdminMessages(prev => prev.map(m => m.id === msg.id ? msg : m))
+            setAdminMessages(prev => prev.map(m => m.id === msg.id ? { ...msg, stableId: m.stableId } : m))
           }
         }
       )
