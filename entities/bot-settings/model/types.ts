@@ -10,6 +10,10 @@ export type BotSettings = {
   similarity_thr: number
   similarity_exact_thr: number
   fallback_msg: string
+  greeting_enabled: boolean
+  greeting_msg: string
+  greeting_thr: number
+  greeting_phrase: string
   updated_at: string
   updated_by: string | null
 }

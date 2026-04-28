@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { supabase } from '@/shared/api/supabase-client'
 import type { BotSettings } from '@/entities/bot-settings/model/types'
 import { AVAILABLE_MODELS } from '@/entities/bot-settings/model/types'
 
@@ -21,14 +22,29 @@ export function BotSettingsForm({ initial, onSave }: Props) {
     similarity_thr:      initial.similarity_thr,
     similarity_exact_thr: initial.similarity_exact_thr,
     fallback_msg:        initial.fallback_msg,
+    greeting_enabled:    initial.greeting_enabled,
+    greeting_msg:        initial.greeting_msg,
+    greeting_thr:        initial.greeting_thr,
+    greeting_phrase:     initial.greeting_phrase,
   })
   const [saving, setSaving] = useState(false)
   const [saved,  setSaved]  = useState(false)
   const [error,  setError]  = useState('')
+  const [embedding, setEmbedding] = useState(false)
+  const [embedMsg,  setEmbedMsg]  = useState('')
 
   function set<K extends keyof typeof form>(key: K, value: typeof form[K]) {
     setForm(f => ({ ...f, [key]: value }))
     setSaved(false)
+  }
+
+  async function generateGreetingEmbedding() {
+    setEmbedding(true)
+    setEmbedMsg('')
+    const { error } = await supabase.functions.invoke('generate-greeting-embedding', { body: {} })
+    if (error) setEmbedMsg(`Ошибка: ${error.message}`)
+    else setEmbedMsg('Эмбеддинг обновлён')
+    setEmbedding(false)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -189,6 +205,81 @@ export function BotSettingsForm({ initial, onSave }: Props) {
             className="w-full rounded-md border border-zinc-200 dark:border-zinc-700 px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-zinc-400"
           />
           <p className="text-[10px] text-zinc-400">При достижении лимита бот отправляет fallback-сообщение</p>
+        </div>
+      </section>
+
+      {/* ── Приветствие ── */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Приветствие</h3>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <span className="text-xs text-zinc-500">Включить</span>
+            <input
+              type="checkbox"
+              checked={form.greeting_enabled}
+              onChange={e => set('greeting_enabled', e.target.checked)}
+              className="accent-zinc-900 dark:accent-zinc-100 h-4 w-4"
+            />
+          </label>
+        </div>
+        <p className="text-xs text-zinc-500 -mt-2">
+          Если сообщение пользователя похоже на приветствие — бот ответит заданным текстом, не вызывая AI.
+        </p>
+
+        <div className="space-y-1">
+          <label className="block text-xs text-zinc-500">Текст приветствия</label>
+          <textarea
+            value={form.greeting_msg}
+            onChange={e => set('greeting_msg', e.target.value)}
+            rows={3}
+            disabled={!form.greeting_enabled}
+            className="w-full rounded-md border border-zinc-200 dark:border-zinc-700 px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-zinc-400 resize-none disabled:opacity-50"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-zinc-500">
+              <label>Порог схожести</label>
+              <span className="font-mono">{form.greeting_thr.toFixed(2)}</span>
+            </div>
+            <input
+              type="range" min={0} max={1} step={0.05}
+              value={form.greeting_thr}
+              onChange={e => set('greeting_thr', parseFloat(e.target.value))}
+              disabled={!form.greeting_enabled}
+              className="w-full accent-zinc-900 dark:accent-zinc-100 disabled:opacity-50"
+            />
+            <p className="text-[10px] text-zinc-400">Минимальная схожесть с эталонными фразами</p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-xs text-zinc-500">Эталонные фразы для эмбеддинга</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={form.greeting_phrase}
+                onChange={e => set('greeting_phrase', e.target.value)}
+                disabled={!form.greeting_enabled}
+                className="flex-1 rounded-md border border-zinc-200 dark:border-zinc-700 px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={generateGreetingEmbedding}
+                disabled={embedding || !form.greeting_enabled}
+                className="shrink-0 rounded-md border border-zinc-200 dark:border-zinc-700 px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors"
+                title="Сохраните настройки, затем обновите эмбеддинг"
+              >
+                {embedding ? '…' : '↻'}
+              </button>
+            </div>
+            {embedMsg && (
+              <p className={`text-[10px] ${embedMsg.startsWith('Ошибка') ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                {embedMsg}
+              </p>
+            )}
+            <p className="text-[10px] text-zinc-400">После изменения фраз: сохраните настройки → обновите эмбеддинг (↻)</p>
+          </div>
         </div>
       </section>
 
