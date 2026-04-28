@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '@/shared/api/supabase-client'
 import type { BotSettings } from '@/entities/bot-settings/model/types'
 import { AVAILABLE_MODELS } from '@/entities/bot-settings/model/types'
@@ -32,6 +33,7 @@ export function BotSettingsForm({ initial, onSave }: Props) {
   const [error,  setError]  = useState('')
   const [embedding, setEmbedding] = useState(false)
   const [embedMsg,  setEmbedMsg]  = useState('')
+  const [feedbackParent] = useAutoAnimate({ duration: 200 })
 
   function set<K extends keyof typeof form>(key: K, value: typeof form[K]) {
     setForm(f => ({ ...f, [key]: value }))
@@ -296,7 +298,7 @@ export function BotSettingsForm({ initial, onSave }: Props) {
       </section>
 
       {/* ── Действия ── */}
-      <div className="flex items-center gap-4 pt-2">
+      <div className="flex items-center gap-4 pt-2" ref={feedbackParent}>
         <button
           type="submit"
           disabled={saving}

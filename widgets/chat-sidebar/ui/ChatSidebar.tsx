@@ -1,5 +1,6 @@
 'use client'
 
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { formatDateTime } from '@/shared/lib/format-date'
 import type { ChatItem, MessageRow } from '@/entities/chat/model/types'
 import { useUnreadCounts } from '@/features/track-unread/api/use-unread-counts'
@@ -19,6 +20,7 @@ export default function ChatSidebar({
 }) {
   const chatIds = chats.map((c) => String(c.telegram_chat_id))
   const { unreadCounts } = useUnreadCounts(chatIds, allRows)
+  const [animParent] = useAutoAnimate({ duration: 200 })
 
   return (
     <aside className="w-72 shrink-0 border-r border-zinc-200 dark:border-zinc-800 p-3 overflow-y-auto">
@@ -33,7 +35,7 @@ export default function ChatSidebar({
         <div className="text-sm text-zinc-600">Пока нет чатов</div>
       )}
 
-      <ul className="space-y-1">
+      <ul className="space-y-1" ref={animParent}>
         {chats.map((c) => {
           const id = String(c.telegram_chat_id)
           const isActive = id === activeChatId

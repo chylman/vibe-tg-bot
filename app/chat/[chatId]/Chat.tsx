@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { OverlayScrollbarsComponent } from 'overlayscrollbars-react'
 import type { OverlayScrollbarsComponentRef } from 'overlayscrollbars-react'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { formatDateTime } from '@/shared/lib/format-date'
 import { useMessages } from '@/entities/message/api/use-messages'
 import { useChatSession } from '@/entities/chat/api/use-chat-session'
@@ -16,6 +17,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
   const pendingScrollRestore = useRef<number | null>(null)
 
   const getViewport = () => osRef.current?.osInstance()?.elements().viewport ?? null
+  const [animParent] = useAutoAnimate({ duration: 200 })
 
   // IDs of user messages that existed when the chat first loaded.
   // Any user message NOT in this set is "new" and triggers the divider.
@@ -173,7 +175,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
         style={{ height: '0' }}
         options={{ scrollbars: { autoHide: 'scroll', autoHideDelay: 600 }, overflow: { x: 'hidden' } }}
       >
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-3" ref={animParent}>
         <div ref={topRef} />
         {isLoadingMore && <div className="text-center text-xs text-zinc-400 py-1">Загрузка…</div>}
         {loading && <div className="text-sm text-zinc-500">Загрузка…</div>}

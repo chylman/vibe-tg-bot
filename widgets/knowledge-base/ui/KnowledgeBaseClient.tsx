@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '@/shared/api/supabase-client'
 import { useKnowledgeBase } from '@/entities/knowledge-entry/api/use-knowledge-base'
 import type { KnowledgeEntry } from '@/entities/knowledge-entry/model/types'
@@ -14,6 +15,8 @@ export default function KnowledgeBaseClient({ adminId, initialEntries }: { admin
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all')
   const [reembedding, setReembedding] = useState(false)
   const [reembedMsg, setReembedMsg] = useState('')
+  const [listParent] = useAutoAnimate({ duration: 200 })
+  const [notifParent] = useAutoAnimate({ duration: 200 })
 
   function openCreate() {
     setEditEntry(null)
@@ -122,9 +125,11 @@ export default function KnowledgeBaseClient({ adminId, initialEntries }: { admin
         />
       )}
 
-      {(loadError || error) && !showForm && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{loadError || error}</div>
-      )}
+      <div ref={notifParent}>
+        {(loadError || error) && !showForm && (
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{loadError || error}</div>
+        )}
+      </div>
 
       {/* List */}
       {loading ? (
@@ -134,7 +139,7 @@ export default function KnowledgeBaseClient({ adminId, initialEntries }: { admin
           Нет записей. Добавьте первую!
         </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-2" ref={listParent}>
           {visible.map(entry => (
             <li
               key={entry.id}
