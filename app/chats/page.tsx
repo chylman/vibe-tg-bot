@@ -19,13 +19,14 @@ export default async function ChatsPage({
 
   const { data: clientRows, error: chatsError } = await supabase
     .from('clients')
-    .select('telegram_chat_id, last_seen_at')
+    .select('telegram_chat_id, last_seen_at, username')
     .order('last_seen_at', { ascending: false })
     .limit(200)
 
-  const chats: { telegram_chat_id: any; last_at: string }[] = (clientRows ?? []).map((c) => ({
+  const chats: { telegram_chat_id: any; last_at: string; username: string | null }[] = (clientRows ?? []).map((c) => ({
     telegram_chat_id: c.telegram_chat_id,
     last_at: c.last_seen_at,
+    username: c.username ?? null,
   }))
 
   const { data: rows } = await supabase

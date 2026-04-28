@@ -52,9 +52,14 @@ export default function ChatSidebar({
                 }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="truncate" title={id}>
-                    Chat {id}
-                  </span>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium" title={c.username ?? id}>
+                      {c.username ?? id}
+                    </div>
+                    <div className={`text-[10px] ${isActive ? 'opacity-60' : 'text-zinc-400'}`}>
+                      {id}
+                    </div>
+                  </div>
                   {unread > 0 && !isActive && (
                     <span className="shrink-0 rounded-full bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.5 leading-none">
                       {unread > 99 ? '99+' : unread}

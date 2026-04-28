@@ -8,6 +8,7 @@ export type ChatSession = {
 export type ChatItem = {
   telegram_chat_id: any
   last_at: string
+  username?: string | null
 }
 
 export type MessageRow = {
