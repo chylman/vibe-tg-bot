@@ -60,6 +60,11 @@ export function useMessages(chatIdStr: string | null, chatIdNum: number | string
           const msg = payload.new as Msg
           if (msg.sender === 'manager') {
             setAdminMessages(prev => {
+              const existing = prev.find(m => m.id === msg.id)
+              if (existing) {
+                // Already confirmed via confirmOptimistic — update in-place, keep stableId
+                return prev.map(m => m.id === msg.id ? { ...msg, stableId: m.stableId } : m)
+              }
               const withoutOptimistic = prev.filter(m => !m.id.startsWith('temp-'))
               return [...withoutOptimistic, msg]
             })
@@ -109,11 +114,18 @@ export function useMessages(chatIdStr: string | null, chatIdNum: number | string
     setIsLoadingMore(false)
   }
 
+  function confirmOptimistic(tempId: string, realId: string) {
+    setAdminMessages(prev => prev.map(m =>
+      m.id === tempId ? { ...m, id: realId, stableId: tempId } : m
+    ))
+  }
+
   return {
     userMessages,
     adminMessages,
     botMessages,
     setAdminMessages,
+    confirmOptimistic,
     loading,
     error,
     setError,

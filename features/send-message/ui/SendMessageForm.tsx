@@ -13,6 +13,7 @@ type Props = {
   session: ChatSession | null
   onOptimisticAdd: (msg: Msg) => void
   onOptimisticRemove: (id: string) => void
+  onOptimisticConfirm: (tempId: string, realId: string) => void
   onScrollToBottom: () => void
   onError: (msg: string) => void
 }
@@ -25,6 +26,7 @@ export function SendMessageForm({
   session,
   onOptimisticAdd,
   onOptimisticRemove,
+  onOptimisticConfirm,
   onScrollToBottom,
   onError,
 }: Props) {
@@ -65,6 +67,8 @@ export function SendMessageForm({
       onOptimisticRemove(optimisticId)
       return
     }
+
+    onOptimisticConfirm(optimisticId, String(msgRow.id))
 
     const { error: fnError } = await supabase.functions.invoke('send-telegram-message', {
       body: { telegram_chat_id: chatIdNum, text: value, message_id: msgRow.id },

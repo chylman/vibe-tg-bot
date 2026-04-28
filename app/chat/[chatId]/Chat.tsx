@@ -44,6 +44,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
 
   const {
     userMessages, adminMessages, botMessages, setAdminMessages,
+    confirmOptimistic,
     loading, error, setError,
     hasMore, isLoadingMore, loadMore,
   } = useMessages(chatIdStr, chatIdNum)
@@ -137,7 +138,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     }))
     const a: Item[] = adminMessages.map((m) => ({
       kind: 'admin',
-      id: `a-${m.id}`,
+      id: `a-${m.stableId ?? m.id}`,
       text: m.text || '',
       at: m.created_at,
       meta: { status: m.status },
@@ -243,6 +244,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
         session={session}
         onOptimisticAdd={(msg) => setAdminMessages((prev) => [...prev, msg])}
         onOptimisticRemove={(id) => setAdminMessages((prev) => prev.filter((m) => m.id !== id))}
+        onOptimisticConfirm={confirmOptimistic}
         onScrollToBottom={() => scrollToBottom('smooth')}
         onError={setError}
       />
