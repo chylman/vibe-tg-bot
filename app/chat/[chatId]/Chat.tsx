@@ -30,6 +30,12 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     bottomRef.current?.scrollIntoView({ behavior })
   }
 
+  const isNearBottom = () => {
+    const vp = getViewport()
+    if (!vp) return true
+    return vp.scrollHeight - vp.scrollTop - vp.clientHeight < 150
+  }
+
   const chatIdStr = useMemo(() => {
     const raw = (chatId ?? '').toString().trim()
     if (!raw || raw === 'undefined' || raw === 'null') return null
@@ -88,6 +94,13 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
       markAsRead(merged)
     }
   }, [userMessages.length])
+
+  // Auto-scroll to bottom when new messages arrive, if already near the bottom
+  useEffect(() => {
+    if (loading) return
+    if (pendingScrollRestore.current !== null) return
+    if (isNearBottom()) scrollToBottom('smooth')
+  }, [merged.length])
 
   // After prepend: restore scroll position so the view doesn't jump to the top
   useLayoutEffect(() => {
