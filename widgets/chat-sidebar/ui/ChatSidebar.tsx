@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { formatDateTime } from '@/shared/lib/format-date'
 import type { ChatItem, MessageRow } from '@/entities/chat/model/types'
@@ -45,7 +46,7 @@ export default function ChatSidebar({
 
           return (
             <li key={id}>
-              <a
+              <Link
                 href={`${linkBase}?chatId=${encodeURIComponent(id)}`}
                 className={`flex items-center justify-between rounded-md px-3 py-2 text-sm ${
                   isActive
@@ -76,7 +77,7 @@ export default function ChatSidebar({
                 >
                   {when}
                 </span>
-              </a>
+              </Link>
             </li>
           )
         })}
