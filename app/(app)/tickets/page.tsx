@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { getSupabaseServer } from '@/shared/api/supabase-server'
-import { AppNav } from '@/widgets/app-nav/ui/AppNav'
 import TicketsClient from '@/widgets/tickets/ui/TicketsClient'
 import type { Ticket } from '@/entities/ticket/model/types'
 
@@ -17,12 +16,9 @@ export default async function TicketsPage() {
     .order('due_at', { ascending: true, nullsFirst: false })
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <AppNav email={user.email ?? ''} active="/tickets" />
-      <main className="flex-1 p-6 max-w-4xl mx-auto w-full">
-        <h1 className="text-xl font-semibold mb-6">Тикеты</h1>
-        <TicketsClient adminId={user.id} initialTickets={(data ?? []) as Ticket[]} />
-      </main>
-    </div>
+    <main className="flex-1 p-6 max-w-4xl mx-auto w-full">
+      <h1 className="text-xl font-semibold mb-6">Тикеты</h1>
+      <TicketsClient adminId={user.id} initialTickets={(data ?? []) as Ticket[]} />
+    </main>
   )
 }

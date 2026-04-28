@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation'
 import { getSupabaseServer } from '@/shared/api/supabase-server'
 import { STATUS_LABEL, STATUS_STYLE, PRIORITY_STYLE } from '@/shared/lib/constants'
 import { formatDateLong } from '@/shared/lib/format-date'
-import { AppNav } from '@/widgets/app-nav/ui/AppNav'
 import DashboardChatsPreview from '@/widgets/chats-preview/ui/DashboardChatsPreview'
 import Link from 'next/link'
 import type { Ticket } from '@/entities/ticket/model/types'
@@ -54,10 +53,7 @@ export default async function DashboardPage() {
   const memberSince = manager?.created_at ? formatDateLong(manager.created_at) : null
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <AppNav email={user.email ?? ''} active="/" />
-
-      <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
+    <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
 
         {/* Manager card */}
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-5 flex flex-wrap items-center justify-between gap-4">
@@ -169,7 +165,6 @@ export default async function DashboardPage() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+    </main>
   )
 }

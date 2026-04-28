@@ -3,8 +3,7 @@ export const dynamic = 'force-dynamic'
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { getSupabaseServer } from '@/shared/api/supabase-server'
-import { AppNav } from '@/widgets/app-nav/ui/AppNav'
-import Chat from '@/app/chat/[chatId]/Chat'
+import Chat from '@/app/(app)/chat/[chatId]/Chat'
 import ChatSidebar from '@/widgets/chat-sidebar/ui/ChatSidebar'
 import { ChatSkeleton } from '@/widgets/chat-sidebar/ui/ChatSkeleton'
 
@@ -44,10 +43,7 @@ export default async function ChatsPage({
     qpChatId && qpChatId !== 'undefined' && qpChatId !== 'null' ? qpChatId : firstChatId
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      <AppNav email={user.email ?? ''} active="/chats" />
-
-      <main className="flex-1 flex min-h-0">
+    <main className="flex-1 flex min-h-0 overflow-hidden">
         <ChatSidebar
           chats={chats}
           allRows={(rows ?? []) as { telegram_chat_id: any; created_at: string }[]}
@@ -70,7 +66,6 @@ export default async function ChatsPage({
             </div>
           )}
         </section>
-      </main>
-    </div>
+    </main>
   )
 }

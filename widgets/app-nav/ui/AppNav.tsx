@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/actions/auth'
 
 const NAV_LINKS = [
@@ -9,7 +12,9 @@ const NAV_LINKS = [
   { href: '/settings',        label: 'Настройки'    },
 ]
 
-export function AppNav({ email, active }: { email: string; active: string }) {
+export function AppNav({ email }: { email: string }) {
+  const pathname = usePathname()
+
   return (
     <header className="shrink-0 border-b border-zinc-200 dark:border-zinc-800 px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-6">
@@ -20,7 +25,7 @@ export function AppNav({ email, active }: { email: string; active: string }) {
               key={l.href}
               href={l.href}
               className={
-                active === l.href
+                pathname === l.href
                   ? 'font-medium text-zinc-900 dark:text-zinc-100'
                   : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
               }
