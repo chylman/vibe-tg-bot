@@ -100,7 +100,7 @@ export default function Chat({ chatId, adminEmail, adminId }: { chatId: string; 
     if (loading) return
     if (pendingScrollRestore.current !== null) return
     if (isNearBottom()) scrollToBottom('smooth')
-  }, [merged.length])
+  }, [userMessages.length, adminMessages.length, botMessages.length])
 
   // After prepend: restore scroll position so the view doesn't jump to the top
   useLayoutEffect(() => {
